@@ -1,0 +1,720 @@
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Roboto+Mono:wght@500;600;700&display=swap');
+
+  :root{
+    --bg:#0E1317; --surface:#171E24; --surface2:#1F2830; --surface3:#26313A;
+    --border:#2B3742; --text:#EEF3F6; --text-muted:#8FA0AC; --text-faint:#5C6B76;
+    --accent:#3E86BE; --green:#33C481; --amber:#F0B429; --red:#E5534B; --ev:#2FD3C4;
+  }
+  *{ box-sizing:border-box; }
+  body,#root{ background:var(--bg); }
+  .app-wrap{ background:var(--bg); min-height:100%; padding:24px 12px; display:flex; justify-content:center; font-family:'Inter',sans-serif; color:var(--text); }
+  .phone{ width:100%; max-width:420px; background:var(--surface); border-radius:32px; border:1px solid var(--border); overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,0.45); }
+  .display{ font-family:'Oswald','Arial Narrow',sans-serif; }
+  .mono{ font-family:'Roboto Mono',monospace; }
+
+  .header{ padding:18px 18px 12px; border-bottom:1px solid var(--border); }
+  .header-top{ display:flex; align-items:center; justify-content:space-between; }
+  .brand{ font-size:22px; font-weight:700; letter-spacing:0.5px; }
+  .brand span{ color:var(--accent); }
+  .subtitle{ font-size:11px; color:var(--text-muted); margin-top:-2px; }
+  .icon-btn{ background:var(--surface2); border:1px solid var(--border); border-radius:10px; width:34px; height:34px; display:flex; align-items:center; justify-content:center; color:var(--text-muted); cursor:pointer; }
+  .info-box{ margin-top:10px; font-size:11.5px; line-height:1.5; color:var(--text-muted); background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:10px; display:none; }
+  .info-box.open{ display:block; }
+  .info-box b{ color:var(--accent); font-weight:600; }
+
+  .loc-bar{ margin-top:14px; width:100%; display:flex; align-items:center; gap:8px; background:var(--surface2); border:1px solid var(--border); border-radius:12px; padding:10px 12px; color:var(--text); cursor:pointer; font-size:13.5px; font-weight:500; }
+  .loc-bar svg{ flex:0 0 auto; }
+  .loc-bar span{ flex:1; text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+  .section{ padding:14px 18px 4px; }
+  .row-between{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px; }
+  .label-eyebrow{ font-size:12px; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.5px; }
+  .radius-val{ font-size:15px; font-weight:700; color:var(--accent); }
+  input[type=range]{ -webkit-appearance:none; width:100%; height:4px; border-radius:4px; background:var(--surface3); }
+  input[type=range]::-webkit-slider-thumb{ -webkit-appearance:none; width:18px; height:18px; border-radius:50%; background:var(--accent); border:3px solid #fff; cursor:pointer; margin-top:-7px; }
+  input[type=range]::-moz-range-thumb{ width:18px; height:18px; border-radius:50%; background:var(--accent); border:3px solid #fff; cursor:pointer; }
+  .scale-labels{ display:flex; justify-content:space-between; font-size:9.5px; color:var(--text-faint); margin-top:2px; }
+
+  .chips{ display:grid; grid-template-columns:repeat(4,1fr); gap:7px; padding:12px 18px; }
+  .chip{ display:flex; align-items:center; justify-content:center; gap:5px; padding:9px 6px; border-radius:12px; border:1px solid var(--border); background:var(--surface2); color:var(--text-muted); font-size:11.5px; font-weight:600; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .chip.active{ border-color:var(--accent); background:rgba(62,134,190,0.18); color:var(--accent); }
+  .chip.active.ev{ border-color:var(--ev); background:rgba(47,211,196,0.15); color:var(--ev); }
+  .chip svg{ flex:0 0 auto; }
+
+  .map-card{ margin:4px 18px 8px; background:var(--surface2); border-radius:18px; border:1px solid var(--border); padding:12px; }
+  .map-card-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+  .map-toggle{ background:var(--surface3); border:1px solid var(--border); border-radius:8px; padding:5px 9px; color:var(--text-muted); font-size:10.5px; font-weight:600; cursor:pointer; }
+  #map{ height:270px; border-radius:14px; overflow:hidden; background:#0C1215; }
+  .map-empty{ height:270px; display:flex; align-items:center; justify-content:center; color:var(--text-muted); font-size:12.5px; text-align:center; padding:20px; }
+  .map-banner{ font-size:10.5px; line-height:1.4; color:var(--amber); background:rgba(240,180,41,0.1); border:1px solid rgba(240,180,41,0.35); border-radius:10px; padding:8px 10px; margin-bottom:8px; display:none; }
+  .map-banner.show{ display:block; }
+  #mapFallback{ height:270px; border-radius:14px; overflow:hidden; background:#0C1215; display:none; }
+  .dark-tiles{ filter:invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.9) saturate(0.65); }
+  .leaflet-control-layers{ background:var(--surface2) !important; color:var(--text) !important; border:1px solid var(--border) !important; border-radius:10px !important; }
+  .leaflet-control-layers label{ color:var(--text) !important; font-size:12px; }
+  .leaflet-control-zoom a{ background:var(--surface2) !important; color:var(--text) !important; border-color:var(--border) !important; }
+  .leaflet-bar{ border:none !important; }
+  .leaflet-control-attribution{ background:rgba(23,30,36,0.75) !important; color:var(--text-faint) !important; }
+  .leaflet-control-attribution a{ color:var(--text-muted) !important; }
+  .legend{ display:flex; align-items:center; gap:8px; margin-top:8px; }
+  .legend .lo{ font-size:9.5px; color:var(--green); }
+  .legend .hi{ font-size:9.5px; color:var(--red); }
+  .legend .bar{ flex:1; height:6px; border-radius:4px; background:linear-gradient(90deg,var(--green),var(--amber),var(--red)); }
+  .stats{ text-align:center; font-size:10px; color:var(--text-faint); margin-top:6px; }
+  .stats .v{ color:var(--text-muted); }
+  .map-hint{ text-align:center; font-size:9.5px; color:var(--text-faint); margin-top:6px; }
+
+  .list-wrap{ padding:4px 18px 20px; display:flex; flex-direction:column; gap:8px; }
+  .list-title{ font-size:12px; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.5px; margin:6px 0 2px; }
+  .empty-card{ padding:26px 10px; text-align:center; color:var(--text-muted); font-size:12.5px; background:var(--surface2); border-radius:14px; border:1px solid var(--border); }
+  .card{ display:flex; align-items:center; gap:10px; text-align:left; background:var(--surface2); border:1px solid var(--border); border-radius:14px; padding:10px 12px; cursor:pointer; }
+  .card.selected{ background:var(--surface3); }
+  .card .bar{ width:4px; align-self:stretch; border-radius:4px; }
+  .card .idx{ width:20px; text-align:center; font-size:11px; color:var(--text-faint); }
+  .card .mid{ flex:1; min-width:0; }
+  .card .name{ font-size:13.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .card .sub{ font-size:11px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .card .ev-sub{ font-size:10px; margin-top:2px; }
+  .card .price-wrap{ text-align:right; }
+  .card .price{ font-size:15px; font-weight:700; }
+  .card .unit{ font-size:9.5px; color:var(--text-faint); }
+
+  .sheet-backdrop{ position:fixed; inset:0; background:rgba(0,0,0,0.55); display:none; align-items:flex-end; justify-content:center; z-index:50; }
+  .sheet-backdrop.open{ display:flex; }
+  .sheet{ width:100%; max-width:420px; background:var(--surface); border-top-left-radius:24px; border-top-right-radius:24px; border:1px solid var(--border); padding:18px; max-height:82vh; overflow-y:auto; animation:slideUp .22s ease-out; }
+  @keyframes slideUp{ from{ transform:translateY(20px); opacity:0;} to{ transform:translateY(0); opacity:1;} }
+  .sheet-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+  .sheet-title{ font-size:17px; font-weight:700; }
+  .sheet-close{ background:none; border:none; color:var(--text-muted); cursor:pointer; }
+  .btn-primary{ width:100%; display:flex; align-items:center; justify-content:center; gap:8px; background:var(--surface2); border:1px solid var(--accent); border-radius:12px; padding:12px 14px; color:var(--accent); font-weight:600; font-size:13.5px; cursor:pointer; margin-bottom:8px; }
+  .hint-text{ font-size:11px; color:var(--text-faint); margin-bottom:12px; line-height:1.5; }
+  .geo-status{ font-size:11.5px; color:var(--text-muted); margin-bottom:10px; min-height:14px; }
+  .search-wrap{ position:relative; margin-bottom:10px; }
+  .search-wrap svg{ position:absolute; left:12px; top:12px; }
+  .search-input{ width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:12px; padding:10px 12px 10px 32px; color:var(--text); font-size:13px; outline:none; }
+  .eyebrow{ font-size:11px; color:var(--text-faint); margin:14px 0 6px; text-transform:uppercase; letter-spacing:0.5px; font-weight:600; }
+  .town-btn{ display:flex; align-items:center; gap:8px; background:transparent; border:none; border-radius:10px; padding:10px; color:var(--text); font-size:13px; text-align:left; cursor:pointer; width:100%; }
+  .town-btn.active{ background:var(--surface3); }
+  .town-btn:hover{ background:var(--surface2); }
+  .manual-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px; }
+  .manual-grid input{ width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:10px; color:var(--text); font-size:13px; outline:none; }
+  .btn-secondary{ width:100%; background:var(--accent); border:none; border-radius:12px; padding:11px; color:#fff; font-weight:600; font-size:13px; cursor:pointer; }
+
+  .pin-dot{ width:16px; height:16px; border-radius:50%; border:2px solid var(--bg); box-shadow:0 0 0 1px rgba(255,255,255,0.15); }
+  .pin-dot.selected{ width:22px; height:22px; box-shadow:0 0 10px 2px currentColor; }
+  .center-pin{ width:18px; height:18px; border-radius:50%; background:var(--accent); border:3px solid #fff; box-shadow:0 0 0 6px rgba(62,134,190,0.25); cursor:grab; }
+  .leaflet-popup-content-wrapper{ background:var(--surface2); color:var(--text); border-radius:10px; }
+  .leaflet-popup-tip{ background:var(--surface2); }
+  .popup-name{ font-weight:700; font-size:12.5px; margin-bottom:2px; }
+  .popup-sub{ font-size:11px; color:var(--text-muted); margin-bottom:4px; }
+  .popup-price{ font-family:'Roboto Mono',monospace; font-weight:700; font-size:13px; }
+</style>
+
+<div class="app-wrap">
+  <div class="phone">
+
+    <div class="header">
+      <div class="header-top">
+        <div>
+          <div class="brand display">COMBUSTÍVEL<span>+</span></div>
+          <div class="subtitle">preços atualizados diariamente · DGEG / ERSE</div>
+        </div>
+        <button class="icon-btn" id="infoBtn">ⓘ</button>
+      </div>
+      <div class="info-box" id="infoBox">
+        Esta demonstração usa <b>dados de exemplo</b> para ilustrar a experiência. Os preços reais e atualizados
+        diariamente encontram-se disponíveis em <b>precoscombustiveis.dgeg.gov.pt</b> (DGEG/ERSE). Liga esta app a
+        esses dados através de um pequeno servidor intermédio, já que a API pública da DGEG não pode ser acedida
+        diretamente a partir do browser.
+      </div>
+      <div class="info-box" id="evInfoBox" style="border-color:rgba(47,211,196,0.4);">
+        Os postos de carregamento elétrico apresentados são <b>inventados para demonstração</b> — não vêm de nenhum
+        registo público real. A DGEG não publica dados de carregamento elétrico; para dados reais e atualizados
+        seria preciso ligar a app à rede <b>MOBI.E</b> (rede pública portuguesa) ou a um agregador como Electromaps,
+        também através de um servidor intermédio.
+      </div>
+      <button class="loc-bar" id="locBar">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3E86BE" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+        <span id="locLabel">Arouca, Aveiro</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8FA0AC" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+      </button>
+    </div>
+
+    <div class="section">
+      <div class="row-between">
+        <span class="label-eyebrow">Raio de pesquisa</span>
+        <span class="radius-val mono" id="radiusVal">15 km</span>
+      </div>
+      <input type="range" id="radiusSlider" min="0" max="30" step="1" value="15" />
+      <div class="scale-labels"><span>0 km</span><span>15 km</span><span>30 km</span></div>
+    </div>
+
+    <div class="chips" id="chips"></div>
+
+    <div class="map-card">
+      <div class="map-card-head">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span class="label-eyebrow" style="margin-bottom:0;">Mapa</span>
+          <span id="dataBadge" style="font-size:9.5px; font-weight:700; padding:3px 7px; border-radius:999px; letter-spacing:0.3px;"></span>
+        </div>
+        <button class="map-toggle" id="mapToggle">Vista simplificada</button>
+      </div>
+      <div class="map-banner" id="mapBanner"></div>
+      <div id="map"></div>
+      <div id="mapFallback"></div>
+      <div id="mapEmpty" class="map-empty" style="display:none;">Aumenta o raio de pesquisa para veres postos no mapa.</div>
+      <div class="legend" id="legend">
+        <span class="lo mono" id="legendLo">—</span>
+        <div class="bar"></div>
+        <span class="hi mono" id="legendHi">—</span>
+      </div>
+      <div class="stats" id="stats">0 resultados</div>
+      <div class="map-hint">arrasta o pin azul para definir a localização manualmente</div>
+    </div>
+
+    <div class="list-wrap">
+      <div class="list-title" id="listTitle">Gasóleo simples · mais barato primeiro</div>
+      <div id="list"></div>
+    </div>
+  </div>
+</div>
+
+<div class="sheet-backdrop" id="sheetBackdrop">
+  <div class="sheet">
+    <div class="sheet-head">
+      <div class="sheet-title display">Localização</div>
+      <button class="sheet-close" id="sheetClose">✕</button>
+    </div>
+
+    <button class="btn-primary" id="geoBtn">📍 Usar a minha localização atual</button>
+    <div class="geo-status" id="geoStatus"></div>
+
+    <div class="search-wrap">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5C6B76" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+      <input class="search-input" id="townSearch" placeholder="Procurar localidade…" />
+    </div>
+
+    <div class="eyebrow">Inserir coordenadas manualmente</div>
+    <div class="manual-grid">
+      <input id="manualLat" type="number" step="0.0001" placeholder="Latitude (ex: 40.9333)" />
+      <input id="manualLon" type="number" step="0.0001" placeholder="Longitude (ex: -8.2500)" />
+    </div>
+    <button class="btn-secondary" id="manualApply" style="margin-bottom:16px;">Aplicar coordenadas</button>
+
+    <div class="eyebrow">Localidades</div>
+    <div id="townList"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const C = { green:'#33C481', amber:'#F0B429', red:'#E5534B', accent:'#3E86BE', ev:'#2FD3C4' };
+
+  const FUELS = [
+    { key:'gasoleo',     label:'Gasóleo simples',            short:'Gasóleo',    icon:'⛽' },
+    { key:'gasoleop',    label:'Gasóleo especial/aditivado',  short:'Gasóleo+',   icon:'⛽' },
+    { key:'gasoleoagr',  label:'Gasóleo colorido e marcado (agrícola)', short:'Gasóleo agrícola', icon:'🚜' },
+    { key:'gasolina95',  label:'Gasolina 95 simples',         short:'Gasolina 95',icon:'⛽' },
+    { key:'gasolina95p', label:'Gasolina 95 especial',        short:'Gasolina 95+',icon:'⛽' },
+    { key:'gasolina98',  label:'Gasolina 98',                 short:'Gasolina 98',icon:'⛽' },
+    { key:'gpl',         label:'GPL Auto',                    short:'GPL',        icon:'⛽' },
+    { key:'ev',          label:'Carregamento elétrico',       short:'Elétrico',   icon:'⚡' },
+  ];
+
+  const TOWNS = [
+    { name:'Arouca, Aveiro', lat:40.9333, lon:-8.2500 },
+    { name:'Vale de Cambra, Aveiro', lat:40.8422, lon:-8.4004 },
+    { name:'São João da Madeira, Aveiro', lat:40.9006, lon:-8.4867 },
+    { name:'Oliveira de Azeméis, Aveiro', lat:40.8422, lon:-8.4757 },
+    { name:'Santa Maria da Feira, Aveiro', lat:40.9257, lon:-8.5486 },
+    { name:'Castelo de Paiva, Aveiro', lat:41.0333, lon:-8.2833 },
+    { name:'Cinfães, Viseu', lat:41.0667, lon:-8.1167 },
+    { name:'Aveiro (cidade)', lat:40.6405, lon:-8.6538 },
+    { name:'Porto', lat:41.1579, lon:-8.6291 },
+    { name:'Viseu', lat:40.6566, lon:-7.9122 },
+    { name:'Coimbra', lat:40.2033, lon:-8.4103 },
+    { name:'Lisboa', lat:38.7223, lon:-9.1393 },
+  ];
+
+  const STATIONS = [
+    { id:1, name:'Posto Central Arouca', brand:'GALP', municipio:'Arouca', morada:'Av. Universal, 12', lat:40.9339, lon:-8.2489, prices:{ gasoleo:1.599, gasoleop:1.699, gasoleoagr:1.129, gasolina95:1.699, gasolina95p:1.789, gasolina98:1.859, gpl:0.799 } },
+    { id:2, name:'Rede Energia Escariz', brand:'REDE ENERGIA', municipio:'Arouca', morada:'EN 224, Escariz', lat:40.9628, lon:-8.3389, prices:{ gasoleo:1.579, gasoleop:null, gasoleoagr:1.109, gasolina95:1.679, gasolina95p:null, gasolina98:null, gpl:0.769 } },
+    { id:3, name:'PLENERGY Fermedo', brand:'PLENERGY', municipio:'Arouca', morada:'Lugar do Souto, Fermedo', lat:40.9058, lon:-8.2419, prices:{ gasoleo:1.589, gasoleop:1.679, gasoleoagr:1.119, gasolina95:1.689, gasolina95p:1.769, gasolina98:null, gpl:null } },
+    { id:4, name:'G-ENERGY Rossas', brand:'G-ENERGY', municipio:'Arouca', morada:'Rua do Rossio, Rossas', lat:40.9686, lon:-8.2033, prices:{ gasoleo:1.609, gasoleop:null, gasoleoagr:1.139, gasolina95:1.709, gasolina95p:null, gasolina98:null, gpl:0.789 } },
+    { id:5, name:'Genérico Alvarenga', brand:'Genérico', municipio:'Arouca', morada:'EN 326, Alvarenga', lat:40.8894, lon:-8.1806, prices:{ gasoleo:1.619, gasoleop:1.709, gasoleoagr:null, gasolina95:1.719, gasolina95p:null, gasolina98:null, gpl:null } },
+    { id:6, name:'BXPRESS Vale de Cambra', brand:'BXPRESS', municipio:'Vale de Cambra', morada:'Rua Dr. José Marques, 40', lat:40.8437, lon:-8.4021, prices:{ gasoleo:1.569, gasoleop:1.659, gasoleoagr:null, gasolina95:1.669, gasolina95p:1.749, gasolina98:1.819, gpl:0.759 } },
+    { id:7, name:'PETROPRIX Vale de Cambra', brand:'PETROPRIX', municipio:'Vale de Cambra', morada:'Zona Industrial, Lote 4', lat:40.8378, lon:-8.3944, prices:{ gasoleo:1.559, gasoleop:null, gasoleoagr:null, gasolina95:1.649, gasolina95p:null, gasolina98:null, gpl:0.739 } },
+    { id:8, name:'INTERMARCHÉ São João da Madeira', brand:'INTERMARCHÉ', municipio:'São João da Madeira', morada:'Rua Height, 220', lat:40.9014, lon:-8.4849, prices:{ gasoleo:1.549, gasoleop:1.639, gasoleoagr:null, gasolina95:1.639, gasolina95p:1.729, gasolina98:1.799, gpl:0.729 } },
+    { id:9, name:'TRANSFORPEL Oliveira de Azeméis', brand:'TRANSFORPEL', municipio:'Oliveira de Azeméis', morada:'EN 1, Cesar', lat:40.8544, lon:-8.4394, prices:{ gasoleo:1.579, gasoleop:null, gasoleoagr:null, gasolina95:1.679, gasolina95p:null, gasolina98:null, gpl:null } },
+    { id:10, name:'AUCHAN Oliveira de Azeméis', brand:'AUCHAN', municipio:'Oliveira de Azeméis', morada:'Rua da Fonte Nova', lat:40.8419, lon:-8.4739, prices:{ gasoleo:1.599, gasoleop:1.689, gasoleoagr:null, gasolina95:1.689, gasolina95p:1.769, gasolina98:1.839, gpl:0.779 } },
+    { id:11, name:'PLENERGY Feira I', brand:'PLENERGY', municipio:'Santa Maria da Feira', morada:'Rua Comendador Ferreira de Matos', lat:40.9257, lon:-8.5486, prices:{ gasoleo:1.589, gasoleop:1.679, gasoleoagr:1.119, gasolina95:1.699, gasolina95p:1.779, gasolina98:1.849, gpl:0.759 } },
+    { id:12, name:'INTERMARCHÉ Feira', brand:'INTERMARCHÉ', municipio:'Santa Maria da Feira', morada:'Av. Dr. Barros Torres', lat:40.9271, lon:-8.5401, prices:{ gasoleo:1.569, gasoleop:null, gasoleoagr:null, gasolina95:1.669, gasolina95p:null, gasolina98:null, gpl:0.749 } },
+    { id:13, name:'Genérico Castelo de Paiva', brand:'Genérico', municipio:'Castelo de Paiva', morada:'EN 222, Sardoura', lat:41.0333, lon:-8.2833, prices:{ gasoleo:1.619, gasoleop:1.709, gasoleoagr:null, gasolina95:1.719, gasolina95p:null, gasolina98:null, gpl:null } },
+    { id:14, name:'G-ENERGY Cinfães', brand:'G-ENERGY', municipio:'Cinfães', morada:'Rua Central, Cinfães', lat:41.0667, lon:-8.1167, prices:{ gasoleo:1.629, gasoleop:null, gasoleoagr:1.159, gasolina95:1.729, gasolina95p:null, gasolina98:null, gpl:0.799 } },
+    { id:15, name:'REDE ENERGIA Sever do Vouga', brand:'REDE ENERGIA', municipio:'Sever do Vouga', morada:'Av. Central', lat:40.75, lon:-8.3667, prices:{ gasoleo:1.599, gasoleop:1.689, gasoleoagr:1.129, gasolina95:1.699, gasolina95p:1.789, gasolina98:null, gpl:null } },
+    { id:16, name:'BP Ovar', brand:'BP', municipio:'Ovar', morada:'Rua da Praça, 5', lat:40.8611, lon:-8.625, prices:{ gasoleo:1.639, gasoleop:1.729, gasoleoagr:null, gasolina95:1.739, gasolina95p:1.819, gasolina98:1.889, gpl:0.819 } },
+    { id:17, name:'REPSOL Albergaria-a-Velha', brand:'REPSOL', municipio:'Albergaria-a-Velha', morada:'EN 1, km 227', lat:40.69, lon:-8.4767, prices:{ gasoleo:1.609, gasoleop:1.699, gasoleoagr:null, gasolina95:1.709, gasolina95p:1.789, gasolina98:1.859, gpl:0.789 } },
+    { id:18, name:'CEPSA Espinho', brand:'CEPSA', municipio:'Espinho', morada:'Av. 24', lat:41.0072, lon:-8.6414, prices:{ gasoleo:1.649, gasoleop:1.739, gasoleoagr:null, gasolina95:1.749, gasolina95p:1.829, gasolina98:1.899, gpl:null } },
+    { id:19, name:'GALP Aveiro Centro', brand:'GALP', municipio:'Aveiro', morada:'Av. Dr. Lourenço Peixinho', lat:40.6405, lon:-8.6538, prices:{ gasoleo:1.619, gasoleop:1.709, gasoleoagr:1.149, gasolina95:1.719, gasolina95p:1.799, gasolina98:1.869, gpl:0.769 } },
+    { id:20, name:'INTERMARCHÉ Gondomar', brand:'INTERMARCHÉ', municipio:'Gondomar', morada:'Rua Central', lat:41.1425, lon:-8.5324, prices:{ gasoleo:1.579, gasoleop:null, gasoleoagr:null, gasolina95:1.669, gasolina95p:null, gasolina98:null, gpl:0.739 } },
+    { id:21, name:'PRIO Porto Campanhã', brand:'PRIO', municipio:'Porto', morada:'Rua do Bonjardim', lat:41.1496, lon:-8.5844, prices:{ gasoleo:1.559, gasoleop:1.649, gasoleoagr:null, gasolina95:1.659, gasolina95p:1.739, gasolina98:1.809, gpl:0.719 } },
+    { id:22, name:'Genérico Baião', brand:'Genérico', municipio:'Baião', morada:'EN 108', lat:41.1667, lon:-8.0333, prices:{ gasoleo:1.629, gasoleop:null, gasoleoagr:null, gasolina95:1.729, gasolina95p:null, gasolina98:null, gpl:null } },
+    { id:23, name:'PETROPRIX Resende', brand:'PETROPRIX', municipio:'Resende', morada:'Rua Nova', lat:41.1, lon:-7.9667, prices:{ gasoleo:1.599, gasoleop:null, gasoleoagr:null, gasolina95:1.699, gasolina95p:null, gasolina98:null, gpl:0.759 } },
+    { id:24, name:'GALP Marco de Canaveses', brand:'GALP', municipio:'Marco de Canaveses', morada:'Av. das Tílias', lat:41.1833, lon:-8.15, prices:{ gasoleo:1.609, gasoleop:1.699, gasoleoagr:1.139, gasolina95:1.709, gasolina95p:1.789, gasolina98:1.859, gpl:0.779 } },
+    { id:25, name:'BXPRESS Vila da Feira', brand:'BXPRESS', municipio:'Santa Maria da Feira', morada:'Rua Nova, Lourosa', lat:40.9412, lon:-8.5678, prices:{ gasoleo:1.569, gasoleop:1.659, gasoleoagr:null, gasolina95:1.659, gasolina95p:1.739, gasolina98:null, gpl:0.729 } },
+    { id:26, name:'REDE ENERGIA Moldes', brand:'REDE ENERGIA', municipio:'Arouca', morada:'EN 326, Moldes', lat:40.9694, lon:-8.2789, prices:{ gasoleo:1.589, gasoleop:null, gasoleoagr:1.119, gasolina95:1.689, gasolina95p:null, gasolina98:null, gpl:0.769 } },
+    { id:27, name:'Genérico Tropeço', brand:'Genérico', municipio:'Arouca', morada:'Rua da Igreja, Tropeço', lat:40.9111, lon:-8.2861, prices:{ gasoleo:1.579, gasoleop:1.669, gasoleoagr:null, gasolina95:1.679, gasolina95p:null, gasolina98:null, gpl:null } },
+    { id:28, name:'GALP Urrô', brand:'GALP', municipio:'Arouca', morada:'EN 224, Urrô', lat:40.9847, lon:-8.2308, prices:{ gasoleo:1.599, gasoleop:1.689, gasoleoagr:1.129, gasolina95:1.699, gasolina95p:1.779, gasolina98:1.849, gpl:0.789 } },
+    { id:29, name:'PLENERGY Burgo', brand:'PLENERGY', municipio:'Arouca', morada:'Lugar do Burgo', lat:40.9553, lon:-8.1972, prices:{ gasoleo:1.619, gasoleop:null, gasoleoagr:1.149, gasolina95:1.719, gasolina95p:null, gasolina98:null, gpl:0.799 } },
+    { id:30, name:'INTERMARCHÉ Vale de Cambra', brand:'INTERMARCHÉ', municipio:'Vale de Cambra', morada:'Rua Central', lat:40.8467, lon:-8.4083, prices:{ gasoleo:1.549, gasoleop:1.639, gasoleoagr:null, gasolina95:1.649, gasolina95p:1.729, gasolina98:1.799, gpl:0.719 } },
+    { id:31, name:'CEPSA São João da Madeira', brand:'CEPSA', municipio:'São João da Madeira', morada:'Rua Oliveira Junior', lat:40.8944, lon:-8.4783, prices:{ gasoleo:1.609, gasoleop:1.699, gasoleoagr:null, gasolina95:1.709, gasolina95p:1.789, gasolina98:null, gpl:null } },
+    { id:32, name:'PETROPRIX Coimbra Norte', brand:'PETROPRIX', municipio:'Coimbra', morada:'Av. Fernão Magalhães', lat:40.2033, lon:-8.4103, prices:{ gasoleo:1.579, gasoleop:null, gasoleoagr:null, gasolina95:1.669, gasolina95p:null, gasolina98:null, gpl:0.739 } },
+    { id:33, name:'GALP Viseu Centro', brand:'GALP', municipio:'Viseu', morada:'Av. Alberto Sampaio', lat:40.6566, lon:-7.9122, prices:{ gasoleo:1.619, gasoleop:1.709, gasoleoagr:1.149, gasolina95:1.719, gasolina95p:1.799, gasolina98:1.869, gpl:0.789 } },
+    { id:34, name:'BP Lisboa Oriente', brand:'BP', municipio:'Lisboa', morada:'Av. Dom João II', lat:38.7223, lon:-9.1393, prices:{ gasoleo:1.659, gasoleop:1.749, gasoleoagr:null, gasolina95:1.759, gasolina95p:1.839, gasolina98:1.909, gpl:0.829 } },
+  ];
+  const EV_STATIONS = [
+    { id:101, name:'Arouca Centro Carregamento', operator:'MOBI.E', municipio:'Arouca', morada:'Parque do Município', lat:40.9341, lon:-8.2481, power:22, connector:'Tipo 2 (AC)', price:0.35 },
+    { id:102, name:'GALP Electric Escariz', operator:'GALP Electric', municipio:'Arouca', morada:'EN 224, Escariz', lat:40.9628, lon:-8.3389, power:60, connector:'CCS (DC)', price:0.42 },
+    { id:103, name:'PRIO Energy Vale de Cambra', operator:'PRIO Energy', municipio:'Vale de Cambra', morada:'Zona Industrial', lat:40.8437, lon:-8.4021, power:150, connector:'CCS (DC)', price:0.48 },
+    { id:104, name:'MOBI.E São João da Madeira', operator:'MOBI.E', municipio:'São João da Madeira', morada:'Rua Height, 220', lat:40.9014, lon:-8.4849, power:22, connector:'Tipo 2 (AC)', price:0.33 },
+    { id:105, name:'GALP Electric Feira', operator:'GALP Electric', municipio:'Santa Maria da Feira', morada:'Rua Comendador Ferreira de Matos', lat:40.9257, lon:-8.5486, power:50, connector:'CHAdeMO / CCS', price:0.44 },
+    { id:106, name:'Ionity Porto A1', operator:'Ionity', municipio:'Porto', morada:'Área de Serviço A1', lat:41.1579, lon:-8.6291, power:300, connector:'CCS (DC)', price:0.59 },
+    { id:107, name:'MOBI.E Oliveira de Azeméis', operator:'MOBI.E', municipio:'Oliveira de Azeméis', morada:'Rua da Fonte Nova', lat:40.8419, lon:-8.4739, power:22, connector:'Tipo 2 (AC)', price:0.34 },
+    { id:108, name:'PRIO Energy Ovar', operator:'PRIO Energy', municipio:'Ovar', morada:'Rua da Praça, 5', lat:40.8611, lon:-8.6250, power:100, connector:'CCS (DC)', price:0.46 },
+  ];
+
+  // ---------- geo helpers ----------
+  const toRad = d => d * Math.PI / 180;
+  function distanceKm(lat1, lon1, lat2, lon2){
+    const R = 6371;
+    const dLat = toRad(lat2-lat1), dLon = toRad(lon2-lon1);
+    const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  }
+  function lerp(a,b,t){ return a + (b-a)*t; }
+  function hexToRgb(hex){ const n = parseInt(hex.slice(1),16); return [(n>>16)&255,(n>>8)&255,n&255]; }
+  function rgbToHex(r,g,b){ return '#' + [r,g,b].map(v=>Math.round(v).toString(16).padStart(2,'0')).join(''); }
+  function priceColor(t){
+    t = Math.max(0, Math.min(1, t));
+    const green = hexToRgb(C.green), amber = hexToRgb(C.amber), red = hexToRgb(C.red);
+    if (t <= 0.5){ const k = t/0.5; return rgbToHex(lerp(green[0],amber[0],k), lerp(green[1],amber[1],k), lerp(green[2],amber[2],k)); }
+    const k = (t-0.5)/0.5; return rgbToHex(lerp(amber[0],red[0],k), lerp(amber[1],red[1],k), lerp(amber[2],red[2],k));
+  }
+  function zoomForRadius(r){
+    if (r<=0) return 13;
+    if (r<=2) return 14;
+    if (r<=5) return 13;
+    if (r<=8) return 12;
+    if (r<=12) return 11.3;
+    if (r<=18) return 10.6;
+    if (r<=24) return 10;
+    return 9.5;
+  }
+
+  // ---------- state ----------
+  const state = { center: TOWNS[0], radius: 15, fuel: 'gasoleo', selectedId: null };
+  let renderToken = 0;
+
+  // ---------- map init (real map: street + satellite, with offline fallback) ----------
+  let usingFallbackMap = false;
+  let tileLoadedOnce = false;
+
+  const map = L.map('map', { zoomControl: true, attributionControl: true }).setView([state.center.lat, state.center.lon], zoomForRadius(state.radius));
+
+  const streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors',
+    maxZoom: 19,
+    className: 'dark-tiles'
+  }).addTo(map);
+
+  const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    attribution: 'Tiles &copy; Esri',
+    maxZoom: 19
+  });
+
+  L.control.layers({ 'Mapa': streetLayer, 'Satélite': satelliteLayer }, null, { position: 'topright' }).addTo(map);
+
+  map.on('tileload', () => { tileLoadedOnce = true; hideMapBanner(); });
+  map.on('tileerror', () => {
+    if (!tileLoadedOnce) maybeShowSlowBanner();
+  });
+
+  function maybeShowSlowBanner(){
+    const banner = document.getElementById('mapBanner');
+    banner.textContent = 'As imagens do mapa estão a demorar a carregar (pode dever-se a restrições de rede). Se não aparecerem, usa a "Vista simplificada".';
+    banner.classList.add('show');
+  }
+  function hideMapBanner(){ document.getElementById('mapBanner').classList.remove('show'); }
+
+  // If no tile has loaded after 5s, auto-switch to the offline fallback view
+  setTimeout(() => {
+    if (!tileLoadedOnce && !usingFallbackMap){
+      const banner = document.getElementById('mapBanner');
+      banner.textContent = 'Não foi possível carregar as imagens do mapa. A mostrar vista simplificada (funciona sem ligação a servidores externos).';
+      banner.classList.add('show');
+      setFallbackMode(true);
+    }
+  }, 5000);
+
+  document.getElementById('mapToggle').addEventListener('click', () => {
+    setFallbackMode(!usingFallbackMap);
+    if (!usingFallbackMap) hideMapBanner();
+  });
+
+  function setFallbackMode(on){
+    usingFallbackMap = on;
+    document.getElementById('map').style.display = on ? 'none' : (state.radius===0 ? 'none' : 'block');
+    document.getElementById('mapFallback').style.display = on ? (state.radius===0 ? 'none' : 'block') : 'none';
+    document.getElementById('mapToggle').textContent = on ? 'Tentar mapa real' : 'Vista simplificada';
+    if (on) setTimeout(() => renderAll(false), 0);
+    else { setTimeout(() => map.invalidateSize(), 100); renderAll(false); }
+  }
+
+  let radiusCircle = L.circle([state.center.lat, state.center.lon], {
+    radius: state.radius*1000, color: C.accent, weight: 1.5, fillColor: C.accent, fillOpacity: 0.06
+  }).addTo(map);
+
+  const centerIcon = L.divIcon({ className:'', html:'<div class="center-pin"></div>', iconSize:[18,18], iconAnchor:[9,9] });
+  let centerMarker = L.marker([state.center.lat, state.center.lon], { icon: centerIcon, draggable: true, zIndexOffset: 1000 }).addTo(map);
+  centerMarker.on('dragend', () => {
+    const ll = centerMarker.getLatLng();
+    state.center = { name: 'Localização escolhida no mapa', lat: ll.lat, lon: ll.lng };
+    renderAll(false);
+  });
+
+  let markersLayer = L.layerGroup().addTo(map);
+  const markersById = {};
+
+  // ---------- computation (tenta API real; recorre a dados de exemplo se falhar) ----------
+  let lastDataSource = 'sample'; // 'live' | 'sample'
+
+  async function fetchLiveStations(fuelKey, center, radiusKm){
+    const url = `/api/postos?fuel=${encodeURIComponent(fuelKey)}&lat=${center.lat}&lon=${center.lon}&raio=${radiusKm}`;
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), 6000);
+    try {
+      const res = await fetch(url, { signal: controller.signal });
+      clearTimeout(t);
+      if (!res.ok) return null;
+      const json = await res.json();
+      if (!Array.isArray(json.stations)) return null;
+      return json.stations.map(s => ({
+        id: s.id, name: s.name, brand: s.brand, municipio: s.municipio,
+        morada: s.morada, lat: s.lat, lon: s.lon, dist: s.dist, price: s.price,
+      }));
+    } catch (e) {
+      clearTimeout(t);
+      return null;
+    }
+  }
+
+  function computeSample(){
+    const isEv = state.fuel === 'ev';
+    const source = isEv ? EV_STATIONS : STATIONS;
+    return source.map(s => {
+      const dist = distanceKm(state.center.lat, state.center.lon, s.lat, s.lon);
+      const price = isEv ? s.price : s.prices[state.fuel];
+      return Object.assign({}, s, { dist, price });
+    }).filter(s => s.price != null && s.dist <= state.radius);
+  }
+
+  async function computeList(){
+    const isEv = state.fuel === 'ev';
+    let list;
+
+    if (isEv){
+      // Sem fonte real ligada ainda para carregamento elétrico — ver caixa de info.
+      lastDataSource = 'sample';
+      list = computeSample();
+    } else {
+      const live = await fetchLiveStations(state.fuel, state.center, state.radius);
+      if (live !== null){
+        lastDataSource = 'live';
+        list = live;
+      } else {
+        lastDataSource = 'sample';
+        list = computeSample();
+      }
+    }
+
+    list.sort((a,b) => a.price - b.price);
+    const min = list.length ? list[0].price : 0;
+    const max = list.length ? list[list.length-1].price : 0;
+    list = list.map(s => Object.assign({}, s, { t: max === min ? 0 : (s.price-min)/(max-min) }));
+    return { list, min, max, isEv };
+  }
+
+  // ---------- render: map ----------
+  function renderMap(data){
+    const { list, isEv } = data;
+
+    document.getElementById('mapEmpty').style.display = state.radius === 0 ? 'flex' : 'none';
+    document.getElementById('map').style.display = usingFallbackMap ? 'none' : (state.radius===0 ? 'none' : 'block');
+    document.getElementById('mapFallback').style.display = usingFallbackMap ? (state.radius===0 ? 'none' : 'block') : 'none';
+
+    if (usingFallbackMap){
+      if (state.radius > 0) renderFallbackMap(data);
+      return;
+    }
+
+    markersLayer.clearLayers();
+    Object.keys(markersById).forEach(k => delete markersById[k]);
+
+    map.setView([state.center.lat, state.center.lon], zoomForRadius(state.radius));
+    radiusCircle.setLatLng([state.center.lat, state.center.lon]);
+    radiusCircle.setRadius(state.radius*1000);
+    centerMarker.setLatLng([state.center.lat, state.center.lon]);
+
+    if (state.radius === 0) return;
+
+    list.forEach(s => {
+      const col = isEv ? C.ev : priceColor(s.t);
+      const selected = state.selectedId === s.id;
+      const icon = L.divIcon({ className:'', html:`<div class="pin-dot ${selected?'selected':''}" style="background:${col}; color:${col};"></div>`, iconSize:[selected?22:16, selected?22:16], iconAnchor:[selected?11:8, selected?11:8] });
+      const marker = L.marker([s.lat, s.lon], { icon }).addTo(markersLayer);
+      const priceTxt = isEv ? s.price.toFixed(2)+'€/kWh' : s.price.toFixed(3)+'€/l';
+      const subTxt = isEv ? `${s.operator} · ${s.power}kW · ${s.connector}` : `${s.brand} · ${s.municipio}`;
+      marker.bindPopup(`<div class="popup-name">${s.name}</div><div class="popup-sub">${subTxt}</div><div class="popup-price" style="color:${col}">${priceTxt}</div>`);
+      marker.on('click', () => { state.selectedId = s.id; renderAll(false); });
+      markersById[s.id] = marker;
+    });
+  }
+
+  // ---------- offline fallback: radial distance map (SVG, no external network needed) ----------
+  function bearingDeg(lat1, lon1, lat2, lon2){
+    const y = Math.sin(toRad(lon2-lon1)) * Math.cos(toRad(lat2));
+    const x = Math.cos(toRad(lat1))*Math.sin(toRad(lat2)) - Math.sin(toRad(lat1))*Math.cos(toRad(lat2))*Math.cos(toRad(lon2-lon1));
+    return Math.atan2(y, x) * 180 / Math.PI;
+  }
+  function renderFallbackMap(data){
+    const { list, isEv } = data;
+    const size = 300, cx = size/2, cy = size/2, maxR = 122;
+    const pxPerKm = state.radius > 0 ? maxR/state.radius : 0;
+    const rings = state.radius >= 20 ? [state.radius*0.34, state.radius*0.67, state.radius] : state.radius >= 8 ? [state.radius*0.5, state.radius] : [state.radius];
+
+    let svg = `<svg viewBox="0 0 ${size} ${size}" width="100%" style="display:block">`;
+    svg += `<circle cx="${cx}" cy="${cy}" r="${maxR+6}" fill="#0C1215" stroke="var(--border)" stroke-width="1"/>`;
+    rings.forEach(r => {
+      const rp = r*pxPerKm;
+      svg += `<circle cx="${cx}" cy="${cy}" r="${rp}" fill="none" stroke="#2B3742" stroke-width="1" stroke-dasharray="3 4" opacity="0.8"/>`;
+      svg += `<text x="${cx+5}" y="${cy-rp-3}" fill="#5C6B76" font-size="9" font-family="Roboto Mono, monospace">${Math.round(r)}km</text>`;
+    });
+    svg += `<line x1="${cx}" y1="${cy-maxR-6}" x2="${cx}" y2="${cy+maxR+6}" stroke="#2B3742" stroke-width="1" opacity="0.4"/>`;
+    svg += `<line x1="${cx-maxR-6}" y1="${cy}" x2="${cx+maxR+6}" y2="${cy}" stroke="#2B3742" stroke-width="1" opacity="0.4"/>`;
+
+    list.forEach(s => {
+      const bearing = bearingDeg(state.center.lat, state.center.lon, s.lat, s.lon);
+      const rp = Math.min(s.dist, state.radius) * pxPerKm;
+      const rad = toRad(bearing);
+      const x = cx + rp*Math.sin(rad), y = cy - rp*Math.cos(rad);
+      const col = isEv ? C.ev : priceColor(s.t);
+      const selected = state.selectedId === s.id;
+      svg += `<g transform="translate(${x},${y})" data-id="${s.id}" class="fb-pin" style="cursor:pointer">
+        <circle r="${selected?10:7}" fill="${col}" stroke="#0E1317" stroke-width="2"/>
+        ${selected ? `<text y="-13" text-anchor="middle" fill="#EEF3F6" font-size="9" font-weight="700" font-family="Roboto Mono, monospace">${isEv? s.price.toFixed(2):s.price.toFixed(3)}€</text>` : ''}
+      </g>`;
+    });
+
+    svg += `<circle cx="${cx}" cy="${cy}" r="5" fill="${C.accent}" stroke="#fff" stroke-width="1.5"/>`;
+    svg += `</svg>`;
+    const el = document.getElementById('mapFallback');
+    el.innerHTML = svg;
+    el.querySelectorAll('.fb-pin').forEach(g => {
+      g.addEventListener('click', () => {
+        state.selectedId = Number(g.getAttribute('data-id'));
+        renderAll(false);
+      });
+    });
+  }
+
+  // ---------- render: list ----------
+  function renderList(data){
+    const { list, min, max, isEv } = data;
+    const listTitle = document.getElementById('listTitle');
+    const fuelObj = FUELS.find(f => f.key === state.fuel);
+    listTitle.textContent = (isEv ? 'Postos de carregamento' : fuelObj.label) + ' · mais barato primeiro';
+
+    const listEl = document.getElementById('list');
+    if (list.length === 0){
+      listEl.innerHTML = `<div class="empty-card">Sem resultados neste raio para este combustível. Tenta aumentar o raio ou escolher outro tipo.</div>`;
+    } else {
+      listEl.innerHTML = list.map((s, idx) => {
+        const col = isEv ? C.ev : priceColor(s.t);
+        const selected = state.selectedId === s.id;
+        const priceTxt = isEv ? s.price.toFixed(2) : s.price.toFixed(3);
+        const unitTxt = isEv ? '/kWh' : '/litro';
+        const subTxt = isEv ? `${s.operator} · ${s.municipio} · ${s.dist.toFixed(1)} km` : `${s.brand} · ${s.municipio} · ${s.dist.toFixed(1)} km`;
+        const evSub = isEv ? `<div class="ev-sub" style="color:${C.ev}">${s.power} kW · ${s.connector}</div>` : '';
+        return `<div class="card ${selected?'selected':''}" data-id="${s.id}" style="border-color:${selected?col:'var(--border)'}">
+          <div class="bar" style="background:${col}"></div>
+          <div class="idx mono">${idx+1}</div>
+          <div class="mid">
+            <div class="name">${s.name}</div>
+            <div class="sub">${subTxt}</div>
+            ${evSub}
+          </div>
+          <div class="price-wrap">
+            <div class="price mono" style="color:${col}">${priceTxt}€</div>
+            <div class="unit">${unitTxt}</div>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    listEl.querySelectorAll('.card').forEach(card => {
+      card.addEventListener('click', () => {
+        const id = Number(card.getAttribute('data-id'));
+        state.selectedId = id;
+        renderAll(false);
+        const m = markersById[id];
+        if (m){ map.panTo(m.getLatLng()); m.openPopup(); }
+      });
+    });
+
+    // legend + stats
+    document.getElementById('legendLo').textContent = list.length ? min.toFixed(isEv?2:3)+'€' : '—';
+    document.getElementById('legendHi').textContent = list.length ? max.toFixed(isEv?2:3)+'€' : '—';
+    document.getElementById('legend').style.visibility = (isEv || list.length===0) ? (list.length? 'visible':'hidden') : 'visible';
+    const avg = list.length ? list.reduce((a,s)=>a+s.price,0)/list.length : 0;
+    document.getElementById('stats').innerHTML = `${list.length} ${list.length===1?'resultado':'resultados'} · média <span class="v mono">${list.length? avg.toFixed(isEv?2:3):'—'}€${isEv?'/kWh':'/l'}</span>`;
+  }
+
+  // ---------- render: chips ----------
+  function renderChips(){
+    const chipsEl = document.getElementById('chips');
+    chipsEl.innerHTML = FUELS.map(f => {
+      const active = f.key === state.fuel;
+      const evClass = f.key === 'ev' ? ' ev' : '';
+      return `<button class="chip ${active?'active'+evClass:''}" data-key="${f.key}">${f.icon} ${f.short}</button>`;
+    }).join('');
+    chipsEl.querySelectorAll('.chip').forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.fuel = btn.getAttribute('data-key');
+        state.selectedId = null;
+        renderAll(true);
+      });
+    });
+  }
+
+  // ---------- master render ----------
+  async function renderAll(refreshChips){
+    document.getElementById('locLabel').textContent = state.center.name;
+    document.getElementById('radiusVal').textContent = state.radius + ' km';
+    if (refreshChips) renderChips();
+    const isEv = state.fuel === 'ev';
+    document.getElementById('infoBox').classList.toggle('open', infoOpen && !isEv);
+    document.getElementById('evInfoBox').classList.toggle('open', infoOpen && isEv);
+
+    const myToken = ++renderToken;
+    const badge = document.getElementById('dataBadge');
+    badge.textContent = '● a atualizar…';
+    badge.style.background = 'var(--surface3)';
+    badge.style.color = 'var(--text-faint)';
+
+    const data = await computeList();
+    if (myToken !== renderToken) return; // uma chamada mais recente já está em curso
+
+    if (lastDataSource === 'live'){
+      badge.textContent = '● dados em direto';
+      badge.style.background = 'rgba(51,196,129,0.15)';
+      badge.style.color = 'var(--green)';
+    } else {
+      badge.textContent = '● dados de exemplo';
+      badge.style.background = 'rgba(240,180,41,0.15)';
+      badge.style.color = 'var(--amber)';
+    }
+
+    renderMap(data);
+    renderList(data);
+  }
+
+  // ---------- events: radius slider (com debounce para não pedir à API a cada pixel) ----------
+  let radiusDebounce;
+  document.getElementById('radiusSlider').addEventListener('input', (e) => {
+    state.radius = Number(e.target.value);
+    document.getElementById('radiusVal').textContent = state.radius + ' km';
+    clearTimeout(radiusDebounce);
+    radiusDebounce = setTimeout(() => renderAll(false), 220);
+  });
+
+  // ---------- events: info box ----------
+  let infoOpen = false;
+  document.getElementById('infoBtn').addEventListener('click', () => {
+    infoOpen = !infoOpen;
+    renderAll(false);
+  });
+
+  // ---------- events: location sheet ----------
+  const sheetBackdrop = document.getElementById('sheetBackdrop');
+  document.getElementById('locBar').addEventListener('click', () => { sheetBackdrop.classList.add('open'); renderTownList(); });
+  document.getElementById('sheetClose').addEventListener('click', () => sheetBackdrop.classList.remove('open'));
+  sheetBackdrop.addEventListener('click', (e) => { if (e.target === sheetBackdrop) sheetBackdrop.classList.remove('open'); });
+
+  document.getElementById('geoBtn').addEventListener('click', () => {
+    const statusEl = document.getElementById('geoStatus');
+    if (!navigator.geolocation){ statusEl.textContent = 'Geolocalização não suportada neste navegador.'; return; }
+    statusEl.textContent = 'A localizar…';
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        state.center = { name:'A minha localização', lat: pos.coords.latitude, lon: pos.coords.longitude };
+        statusEl.textContent = '';
+        sheetBackdrop.classList.remove('open');
+        renderAll(false);
+      },
+      (err) => {
+        const reasons = {
+          1: 'Permissão de localização bloqueada (comum dentro da pré-visualização do Claude). Tenta abrir o ficheiro .html diretamente no browser, ou insere a localização manualmente abaixo.',
+          2: 'Localização indisponível neste dispositivo/navegador. Insere a localização manualmente abaixo.',
+          3: 'O pedido demorou demasiado tempo. Tenta novamente ou insere a localização manualmente.',
+        };
+        statusEl.textContent = reasons[err.code] || ('Não foi possível obter a localização (' + err.message + '). Insere manualmente abaixo.');
+      },
+      { enableHighAccuracy:true, timeout:8000 }
+    );
+  });
+
+  document.getElementById('manualApply').addEventListener('click', () => {
+    const lat = parseFloat(document.getElementById('manualLat').value);
+    const lon = parseFloat(document.getElementById('manualLon').value);
+    if (isNaN(lat) || isNaN(lon)){ return; }
+    state.center = { name: `Localização manual (${lat.toFixed(4)}, ${lon.toFixed(4)})`, lat, lon };
+    sheetBackdrop.classList.remove('open');
+    renderAll(false);
+  });
+
+  document.getElementById('townSearch').addEventListener('input', renderTownList);
+
+  function renderTownList(){
+    const q = document.getElementById('townSearch').value.toLowerCase();
+    const filtered = TOWNS.filter(t => t.name.toLowerCase().includes(q));
+    const townListEl = document.getElementById('townList');
+    if (filtered.length === 0){
+      townListEl.innerHTML = `<div style="font-size:12px;color:var(--text-muted);padding:10px 4px;">Nenhuma localidade encontrada.</div>`;
+      return;
+    }
+    townListEl.innerHTML = filtered.map(t => `
+      <button class="town-btn ${t.name===state.center.name?'active':''}" data-name="${t.name}">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8FA0AC" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+        ${t.name}
+      </button>`).join('');
+    townListEl.querySelectorAll('.town-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const town = TOWNS.find(t => t.name === btn.getAttribute('data-name'));
+        state.center = town;
+        document.getElementById('townSearch').value = '';
+        sheetBackdrop.classList.remove('open');
+        renderAll(false);
+      });
+    });
+  }
+
+  // ---------- boot ----------
+  renderChips();
+  renderAll(false);
+  setTimeout(() => map.invalidateSize(), 200);
+})();
+</script>
