@@ -13,9 +13,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const DGEG_BASE = 'https://precoscombustiveis.dgeg.gov.pt/api/PrecoComb';
 
-// ---- IDs de tipo de combustível ----
-// 3201 = "Gasolina simples 95" — CONFIRMADO com dados reais em 02/07/2026.
-// Os restantes são estimativa — confirmar com /api/debug/probe-fuel-ids
 const FUEL_IDS = {
   gasolina95: 3201,
   gasolina95p: 3202,
@@ -26,10 +23,8 @@ const FUEL_IDS = {
   gpl: 3207,
 };
 
-const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hora — os preços da DGEG só mudam diariamente
-const cache = {}; // fuelKey -> { data: Station[], fetchedAt: number }
-
-// ---------------- helpers ----------------
+const CACHE_TTL_MS = 60 * 60 * 1000;
+const cache = {};
 
 function pick(obj, candidates, fallback = null) {
   for (const key of candidates) {
@@ -77,13 +72,11 @@ async function fetchJson(url) {
     return JSON.parse(text);
   } catch (e) {
     throw new Error(
-      `Resposta da DGEG não é JSON válido (pode ser HTML de erro ou exigir outros cabeçalhos). Início da resposta: ${text.slice(0, 300)}`
+      `Resposta da DGEG não é JSON válido. Início da resposta: ${text.slice(0, 300)}`
     );
   }
 }
 
-// Normaliza a resposta da DGEG para o formato interno da app, tentando
-// vários nomes de campo possíveis.
 function normalizeStation(item) {
   const lat = parseNumber(pick(item, ['Latitude', 'latitude', 'Lat', 'lat']));
   const lon = parseNumber(pick(item, ['Longitude', 'longitude', 'Lon', 'lon', 'Long']));
@@ -124,8 +117,6 @@ async function loadFuel(fuelKey) {
   return entry;
 }
 
-// ---------------- rotas ----------------
-
 app.get('/api/postos', async (req, res) => {
   try {
     const { fuel, lat, lon, raio } = req.query;
@@ -144,8 +135,7 @@ app.get('/api/postos', async (req, res) => {
 
     if (data.length === 0 && rawCount > 0) {
       return res.status(502).json({
-        error:
-          'A DGEG devolveu dados mas não foi possível interpretar os campos (lat/lon/preço). Verifica /api/debug/raw-search para ajustar os nomes de campo em normalizeStation().',
+        error: 'A DGEG devolveu dados mas não foi possível interpretar os campos.',
         rawCount,
       });
     }
@@ -203,9 +193,50 @@ app.get('/api/health', (req, res) => {
   res.json({ ok: true, cachedFuels: Object.keys(cache) });
 });
 
+app.get('/api/debug/find-fuel-ids', async (req, res) => {
+  try {
+    const homeRes = await fetch('https://precoscombustiveis.dgeg.gov.pt/postos/', {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ComparadorCombustivelProxy/1.0)' },
+    });
+    const html = await homeRes.text();
+
+    const scriptSrcs = Array.from(html.matchAll(/<script[^>]+src="([^"]+\.js)"/g)).map((m) => m[1]);
+    const absoluteUrls = scriptSrcs.map((src) =>
+      src.startsWith('http') ? src : new URL(src, 'https://precoscombustiveis.dgeg.gov.pt/postos/').toString()
+    );
+
+    const keywords = ['Gasóleo', 'Gasoleo', 'GPL', 'Gasolina', 'idsTiposComb', 'TiposComb'];
+    const findings = [];
+
+    for (const url of absoluteUrls) {
+      try {
+        const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+        if (!r.ok) continue;
+        const js = await r.text();
+        for (const kw of keywords) {
+          let idx = js.indexOf(kw);
+          let count = 0;
+          while (idx !== -1 && count < 5) {
+            findings.push({
+              file: url,
+              keyword: kw,
+              context: js.slice(Math.max(0, idx - 80), idx + 120),
+            });
+            idx = js.indexOf(kw, idx + 1);
+            count++;
+          }
+        }
+      } catch (e) {}
+    }
+
+    res.json({ scriptsFound: absoluteUrls, findingsCount: findings.length, findings: findings.slice(0, 60) });
+  } catch (err) {
+    res.status(502).json({ error: String(err.message || err) });
+  }
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.listen(PORT, () => {
   console.log(`Comparador Combustível+ proxy a correr em http://localhost:${PORT}`);
-  console.log(`Testa primeiro: http://localhost:${PORT}/api/debug/raw-search?id=3201`);
 });
