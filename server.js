@@ -2,14 +2,6 @@
 //
 // Faz de intermediário entre a app (browser) e a API pública da DGEG,
 // porque o browser não pode chamar precoscombustiveis.dgeg.gov.pt diretamente (CORS).
-//
-// IMPORTANTE — leia o README.md antes de publicar:
-// Os IDs de tipo de combustível (FUEL_IDS) e os nomes de campo usados em pick(...)
-// abaixo são a MELHOR ESTIMATIVA a partir de investigação pública (não foram
-// confirmados com uma chamada real bem-sucedida à API a partir do ambiente onde
-// este código foi escrito). Use os endpoints /api/debug/* para confirmar a forma
-// real da resposta da DGEG e ajustar o que for preciso — ver README.md, secção
-// "Primeira verificação (obrigatória)".
 
 import express from 'express';
 import path from 'path';
@@ -21,7 +13,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const DGEG_BASE = 'https://precoscombustiveis.dgeg.gov.pt/api/PrecoComb';
 
-// ---- Melhor estimativa dos IDs de tipo de combustível — CONFIRMAR (ver README) ----
+// ---- IDs de tipo de combustível ----
+// 3201 = "Gasolina simples 95" — CONFIRMADO com dados reais em 02/07/2026.
+// Os restantes são estimativa — confirmar com /api/debug/probe-fuel-ids
 const FUEL_IDS = {
   gasolina95: 3201,
   gasolina95p: 3202,
@@ -89,8 +83,7 @@ async function fetchJson(url) {
 }
 
 // Normaliza a resposta da DGEG para o formato interno da app, tentando
-// vários nomes de campo possíveis (ver /api/debug/raw-search para confirmar
-// quais são os corretos e simplificar esta lista depois).
+// vários nomes de campo possíveis.
 function normalizeStation(item) {
   const lat = parseNumber(pick(item, ['Latitude', 'latitude', 'Lat', 'lat']));
   const lon = parseNumber(pick(item, ['Longitude', 'longitude', 'Lon', 'lon', 'Long']));
@@ -120,7 +113,6 @@ async function loadFuel(fuelKey) {
   const url = `${DGEG_BASE}/PesquisarPostos?idsTiposComb=${id}`;
   const raw = await fetchJson(url);
 
-  // A resposta pode vir como array direto ou dentro de um invólucro — tenta os dois.
   const list = Array.isArray(raw) ? raw : raw.resultado || raw.Postos || raw.postos || raw.Resultado || [];
 
   const stations = list
@@ -151,8 +143,6 @@ app.get('/api/postos', async (req, res) => {
       .sort((a, b) => a.price - b.price);
 
     if (data.length === 0 && rawCount > 0) {
-      // Os dados vieram da DGEG mas nenhum registo tinha lat/lon/preço reconhecíveis
-      // com os nomes de campo atuais — sinal para rever normalizeStation().
       return res.status(502).json({
         error:
           'A DGEG devolveu dados mas não foi possível interpretar os campos (lat/lon/preço). Verifica /api/debug/raw-search para ajustar os nomes de campo em normalizeStation().',
@@ -167,7 +157,6 @@ app.get('/api/postos', async (req, res) => {
   }
 });
 
-// Endpoints de depuração — usar durante a primeira verificação (ver README.md)
 app.get('/api/debug/raw-search', async (req, res) => {
   try {
     const id = req.query.id || FUEL_IDS.gasolina95;
@@ -187,6 +176,27 @@ app.get('/api/debug/raw-posto', async (req, res) => {
   } catch (err) {
     res.status(502).json({ error: String(err.message || err) });
   }
+});
+
+app.get('/api/debug/probe-fuel-ids', async (req, res) => {
+  const from = parseInt(req.query.from || '3195', 10);
+  const to = parseInt(req.query.to || '3212', 10);
+  const ids = [];
+  for (let id = from; id <= to; id++) ids.push(id);
+
+  const results = await Promise.all(
+    ids.map(async (id) => {
+      try {
+        const raw = await fetchJson(`${DGEG_BASE}/PesquisarPostos?idsTiposComb=${id}`);
+        const list = raw.resultado || raw.Postos || raw.postos || (Array.isArray(raw) ? raw : []);
+        return [id, list.length ? `${list[0].Combustivel} (${list[0].Quantidade} postos)` : '(sem resultados)'];
+      } catch (err) {
+        return [id, 'erro: ' + String(err.message || err)];
+      }
+    })
+  );
+
+  res.json(Object.fromEntries(results));
 });
 
 app.get('/api/health', (req, res) => {
