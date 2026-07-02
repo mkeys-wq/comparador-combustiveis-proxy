@@ -144,34 +144,38 @@ app.get('/api/debug/probe-fuel-ids', async (req, res) => {
 
 app.get('/api/health', (req, res) => { res.json({ ok: true, cachedFuels: Object.keys(cache) }); });
 
-app.get('/api/debug/find-dropdown-source', async (req, res) => {
+app.get('/api/debug/find-tipos-endpoint', async (req, res) => {
   try {
     const homeRes = await fetch('https://precoscombustiveis.dgeg.gov.pt/postos/', {
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ComparadorCombustivelProxy/1.0)' },
     });
     const html = await homeRes.text();
-    const scriptSrcs = Array.from(html.matchAll(/<script[^>]+src="([^"]+\.js)"/g)).map((m) => m[1]);
-    const absoluteUrls = scriptSrcs.map((src) => src.startsWith('http') ? src : new URL(src, 'https://precoscombustiveis.dgeg.gov.pt/postos/').toString());
-    const keywords = ['cboTipoCombustivel', 'TipoCombustivel', 'urlListar', 'urlGlobal', '.append(', 'GetTipos'];
-    const findings = [];
-    for (const url of absoluteUrls) {
-      try {
-        const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-        if (!r.ok) continue;
-        const js = await r.text();
-        for (const kw of keywords) {
-          let idx = js.indexOf(kw);
-          let count = 0;
-          while (idx !== -1 && count < 8) {
-            findings.push({ file: url, keyword: kw, context: js.slice(Math.max(0, idx - 100), idx + 150) });
-            idx = js.indexOf(kw, idx + 1);
-            count++;
-          }
-        }
-      } catch (e) {}
+
+    const varRe = /(var\s+)?(UrlTiposCombustiveis|urlGlobal|UrlMarcas|urlListarDadosPostos)\s*=\s*['"]([^'"]+)['"]/g;
+    const vars = {};
+    let vm;
+    while ((vm = varRe.exec(html)) !== null) {
+      vars[vm[2]] = vm[3];
     }
-    res.json({ findingsCount: findings.length, findings: findings.slice(0, 80) });
-  } catch (err) { res.status(502).json({ error: String(err.message || err) }); }
+
+    let tiposResult = null;
+    if (vars.UrlTiposCombustiveis) {
+      const base = vars.UrlTiposCombustiveis.startsWith('http')
+        ? vars.UrlTiposCombustiveis
+        : new URL(vars.UrlTiposCombustiveis, 'https://precoscombustiveis.dgeg.gov.pt/').toString();
+      try {
+        const tr = await fetch(base, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+        tiposResult = await tr.text();
+        try { tiposResult = JSON.parse(tiposResult); } catch (e2) {}
+      } catch (e) {
+        tiposResult = 'erro a chamar UrlTiposCombustiveis: ' + String(e.message || e);
+      }
+    }
+
+    res.json({ varsFound: vars, tiposResult });
+  } catch (err) {
+    res.status(502).json({ error: String(err.message || err) });
+  }
 });
 
 app.use(express.static(path.join(__dirname, 'public')));
