@@ -16,8 +16,8 @@ const FUEL_IDS = {
   gasoleo: 2101,
   gasoleop: 2105,
   gasoleoagr: 2150,
-  gasolina98: 3203,
-  gpl: 3207,
+  gasolina98: 3400,
+  gpl: 1120,
 };
 
 const CACHE_TTL_MS = 60 * 60 * 1000;
