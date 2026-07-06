@@ -181,7 +181,7 @@
         </div>
         <div class="dist-block">
           <div class="dist-val mono" id="hudDist">—</div>
-          <div class="dist-unit">km</div>
+          <div class="dist-unit" id="hudDistUnit">km</div>
         </div>
         <button class="close-btn" id="hudClose">✕</button>
       </div>
@@ -397,6 +397,8 @@
   }
 
   // ---------- selection + distance HUD ----------
+  let routeRequestToken = 0;
+
   function selectStation(s){
     state.selectedId = s ? s.id : null;
     if (hudLine){ map.removeLayer(hudLine); hudLine = null; }
@@ -408,17 +410,49 @@
       return;
     }
 
-    hudLine = L.polyline([[state.center.lat, state.center.lon],[s.lat, s.lon]], {
-      color: C.cyan, weight: 2, opacity: 0.85, dashArray: '6 8', className: 'hud-line'
-    }).addTo(map);
-
     document.getElementById('hudName').textContent = s.name;
     document.getElementById('hudSub').textContent = s.operator;
-    document.getElementById('hudDist').textContent = s.dist.toFixed(1);
     const tagsEl = document.getElementById('hudTags');
     tagsEl.innerHTML = (s.connectors||[]).slice(0,3).map(c=>`<span class="tag">${c}</span>`).join('') + (s.free ? '<span class="tag" style="color:#34D399">grátis</span>' : '');
+    document.getElementById('hudDist').textContent = '···';
+    document.getElementById('hudDistUnit').textContent = 'a calcular';
     hud.classList.add('show');
+
+    // linha reta imediata, como referência enquanto a rota real carrega
+    hudLine = L.polyline([[state.center.lat, state.center.lon],[s.lat, s.lon]], {
+      color: '#5A6488', weight: 2, opacity: 0.7, dashArray: '5 7', className: 'hud-line'
+    }).addTo(map);
+
     renderAll();
+    fetchRoadRoute(s);
+  }
+
+  async function fetchRoadRoute(s){
+    const myToken = ++routeRequestToken;
+    try {
+      const url = `/api/rota?fromLat=${state.center.lat}&fromLon=${state.center.lon}&toLat=${s.lat}&toLon=${s.lon}`;
+      const res = await fetch(url);
+      if (myToken !== routeRequestToken || state.selectedId !== s.id) return; // seleção mudou entretanto
+      if (!res.ok){
+        document.getElementById('hudDist').textContent = s.dist.toFixed(1);
+        document.getElementById('hudDistUnit').textContent = 'km (linha reta)';
+        return;
+      }
+      const data = await res.json();
+      if (myToken !== routeRequestToken || state.selectedId !== s.id) return;
+
+      document.getElementById('hudDist').textContent = data.distanceKm.toFixed(1);
+      document.getElementById('hudDistUnit').textContent = Math.round(data.durationMin) + ' min de carro';
+
+      if (hudLine){ map.removeLayer(hudLine); }
+      hudLine = L.polyline(data.coordinates, {
+        color: C.cyan, weight: 3, opacity: 0.85, className: 'hud-line'
+      }).addTo(map);
+    } catch (e) {
+      if (myToken !== routeRequestToken || state.selectedId !== s.id) return;
+      document.getElementById('hudDist').textContent = s.dist.toFixed(1);
+      document.getElementById('hudDistUnit').textContent = 'km (linha reta)';
+    }
   }
 
   document.getElementById('hudClose').addEventListener('click', () => selectStation(null));

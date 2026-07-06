@@ -126,6 +126,45 @@ app.get('/api/health', (req, res) => {
   res.json({ ok: true, cachedQueries: Object.keys(evCache).length });
 });
 
+// ---------------- Distância e rota reais (por estrada, via OSRM) ----------------
+const routeCache = {};
+const ROUTE_CACHE_TTL_MS = 60 * 60 * 1000; // 1h
+
+app.get('/api/rota', async (req, res) => {
+  try {
+    const { fromLat, fromLon, toLat, toLon } = req.query;
+    if ([fromLat, fromLon, toLat, toLon].some((v) => v === undefined)) {
+      return res.status(400).json({ error: 'Parâmetros em falta: fromLat, fromLon, toLat, toLon' });
+    }
+    const key = `${fromLat},${fromLon},${toLat},${toLon}`;
+    const now = Date.now();
+    if (routeCache[key] && now - routeCache[key].fetchedAt < ROUTE_CACHE_TTL_MS) {
+      return res.json(routeCache[key].data);
+    }
+
+    const url = `https://router.project-osrm.org/route/v1/driving/${fromLon},${fromLat};${toLon},${toLat}?overview=full&geometries=geojson`;
+    const r = await fetch(url, { headers: { 'User-Agent': 'CargaMaisApp/1.0' } });
+    if (!r.ok) throw new Error(`OSRM devolveu ${r.status} ${r.statusText}`);
+    const raw = await r.json();
+
+    if (raw.code !== 'Ok' || !raw.routes || !raw.routes[0]) {
+      return res.status(404).json({ error: 'Sem rota encontrada por estrada entre estes pontos.' });
+    }
+
+    const route = raw.routes[0];
+    const data = {
+      distanceKm: route.distance / 1000,
+      durationMin: route.duration / 60,
+      coordinates: (route.geometry.coordinates || []).map(([lon, lat]) => [lat, lon]),
+    };
+    routeCache[key] = { data, fetchedAt: now };
+    res.json(data);
+  } catch (err) {
+    console.error(err);
+    res.status(502).json({ error: 'Falha ao calcular a rota', detail: String(err.message || err) });
+  }
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.listen(PORT, () => {
