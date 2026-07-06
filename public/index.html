@@ -132,10 +132,10 @@
         diretamente a partir do browser.
       </div>
       <div class="info-box" id="evInfoBox" style="border-color:rgba(47,211,196,0.4);">
-        Os postos de carregamento elétrico apresentados são <b>inventados para demonstração</b> — não vêm de nenhum
-        registo público real. A DGEG não publica dados de carregamento elétrico; para dados reais e atualizados
-        seria preciso ligar a app à rede <b>MOBI.E</b> (rede pública portuguesa) ou a um agregador como Electromaps,
-        também através de um servidor intermédio.
+        Os postos de carregamento mostrados são <b>reais</b>, com localização, potência e tipo de tomada obtidos do
+        <b>OpenStreetMap</b> (mantido pela comunidade). A DGEG não publica dados de carregamento elétrico, e o preço
+        exato em tempo real de cada posto não está disponível publicamente — por isso não o mostramos, para não
+        inventar um número.
       </div>
       <button class="loc-bar" id="locBar">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3E86BE" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
@@ -412,6 +412,27 @@
     }
   }
 
+  async function fetchLiveEvStations(center, radiusKm){
+    const url = `/api/ev-postos?lat=${center.lat}&lon=${center.lon}&raio=${radiusKm}`;
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), 10000);
+    try {
+      const res = await fetch(url, { signal: controller.signal });
+      clearTimeout(t);
+      if (!res.ok) return null;
+      const json = await res.json();
+      if (!Array.isArray(json.stations)) return null;
+      return json.stations.map(s => ({
+        id: s.id, name: s.name, operator: s.operator, municipio: s.municipio,
+        morada: s.morada, lat: s.lat, lon: s.lon, dist: s.dist,
+        power: s.power, connectors: s.connectors, free: s.free, price: null,
+      }));
+    } catch (e) {
+      clearTimeout(t);
+      return null;
+    }
+  }
+
   function computeSample(){
     const isEv = state.fuel === 'ev';
     const source = isEv ? EV_STATIONS : STATIONS;
@@ -427,9 +448,14 @@
     let list;
 
     if (isEv){
-      // Sem fonte real ligada ainda para carregamento elétrico — ver caixa de info.
-      lastDataSource = 'sample';
-      list = computeSample();
+      const live = await fetchLiveEvStations(state.center, state.radius);
+      if (live !== null){
+        lastDataSource = 'live';
+        list = live;
+      } else {
+        lastDataSource = 'sample';
+        list = computeSample();
+      }
     } else {
       const live = await fetchLiveStations(state.fuel, state.center, state.radius);
       if (live !== null){
@@ -439,6 +465,12 @@
         lastDataSource = 'sample';
         list = computeSample();
       }
+    }
+
+    if (isEv){
+      list.sort((a,b) => a.dist - b.dist);
+      list = list.map(s => Object.assign({}, s, { t: 0 }));
+      return { list, min: 0, max: 0, isEv };
     }
 
     list.sort((a,b) => a.price - b.price);
@@ -476,9 +508,15 @@
       const selected = state.selectedId === s.id;
       const icon = L.divIcon({ className:'', html:`<div class="pin-dot ${selected?'selected':''}" style="background:${col}; color:${col};"></div>`, iconSize:[selected?22:16, selected?22:16], iconAnchor:[selected?11:8, selected?11:8] });
       const marker = L.marker([s.lat, s.lon], { icon }).addTo(markersLayer);
-      const priceTxt = isEv ? s.price.toFixed(2)+'€/kWh' : s.price.toFixed(3)+'€/l';
-      const subTxt = isEv ? `${s.operator} · ${s.power}kW · ${s.connector}` : `${s.brand} · ${s.municipio}`;
-      marker.bindPopup(`<div class="popup-name">${s.name}</div><div class="popup-sub">${subTxt}</div><div class="popup-price" style="color:${col}">${priceTxt}</div>`);
+      let mainTxt, subTxt;
+      if (isEv) {
+        mainTxt = (s.power ? s.power + ' kW' : 'Potência não indicada') + (s.free ? ' · grátis' : '');
+        subTxt = `${s.operator}${s.connectors ? ' · ' + s.connectors.join(', ') : ''}`;
+      } else {
+        mainTxt = s.price.toFixed(3) + '€/l';
+        subTxt = `${s.brand} · ${s.municipio}`;
+      }
+      marker.bindPopup(`<div class="popup-name">${s.name}</div><div class="popup-sub">${subTxt}</div><div class="popup-price" style="color:${col}">${mainTxt}</div>`);
       marker.on('click', () => { state.selectedId = s.id; renderAll(false); });
       markersById[s.id] = marker;
     });
@@ -515,7 +553,7 @@
       const selected = state.selectedId === s.id;
       svg += `<g transform="translate(${x},${y})" data-id="${s.id}" class="fb-pin" style="cursor:pointer">
         <circle r="${selected?10:7}" fill="${col}" stroke="#0E1317" stroke-width="2"/>
-        ${selected ? `<text y="-13" text-anchor="middle" fill="#EEF3F6" font-size="9" font-weight="700" font-family="Roboto Mono, monospace">${isEv? s.price.toFixed(2):s.price.toFixed(3)}€</text>` : ''}
+        ${selected ? `<text y="-13" text-anchor="middle" fill="#EEF3F6" font-size="9" font-weight="700" font-family="Roboto Mono, monospace">${isEv ? (s.power ? s.power+'kW' : '—') : s.price.toFixed(3)+'€'}</text>` : ''}
       </g>`;
     });
 
@@ -536,30 +574,46 @@
     const { list, min, max, isEv } = data;
     const listTitle = document.getElementById('listTitle');
     const fuelObj = FUELS.find(f => f.key === state.fuel);
-    listTitle.textContent = (isEv ? 'Postos de carregamento' : fuelObj.label) + ' · mais barato primeiro';
+    listTitle.textContent = isEv ? 'Postos de carregamento · mais próximo primeiro' : fuelObj.label + ' · mais barato primeiro';
 
     const listEl = document.getElementById('list');
     if (list.length === 0){
-      listEl.innerHTML = `<div class="empty-card">Sem resultados neste raio para este combustível. Tenta aumentar o raio ou escolher outro tipo.</div>`;
-    } else {
+      listEl.innerHTML = `<div class="empty-card">Sem resultados neste raio${isEv ? '' : ' para este combustível'}. Tenta aumentar o raio${isEv ? '' : ' ou escolher outro tipo'}.</div>`;
+    } else if (isEv) {
       listEl.innerHTML = list.map((s, idx) => {
-        const col = isEv ? C.ev : priceColor(s.t);
+        const col = C.ev;
         const selected = state.selectedId === s.id;
-        const priceTxt = isEv ? s.price.toFixed(2) : s.price.toFixed(3);
-        const unitTxt = isEv ? '/kWh' : '/litro';
-        const subTxt = isEv ? `${s.operator} · ${s.municipio} · ${s.dist.toFixed(1)} km` : `${s.brand} · ${s.municipio} · ${s.dist.toFixed(1)} km`;
-        const evSub = isEv ? `<div class="ev-sub" style="color:${C.ev}">${s.power} kW · ${s.connector}</div>` : '';
+        const subTxt = `${s.operator} · ${s.dist.toFixed(1)} km`;
+        const connTxt = s.connectors ? s.connectors.join(', ') : 'tomada não indicada';
         return `<div class="card ${selected?'selected':''}" data-id="${s.id}" style="border-color:${selected?col:'var(--border)'}">
           <div class="bar" style="background:${col}"></div>
           <div class="idx mono">${idx+1}</div>
           <div class="mid">
             <div class="name">${s.name}</div>
             <div class="sub">${subTxt}</div>
-            ${evSub}
+            <div class="ev-sub" style="color:${C.ev}">${connTxt}${s.free ? ' · grátis' : ''}</div>
           </div>
           <div class="price-wrap">
-            <div class="price mono" style="color:${col}">${priceTxt}€</div>
-            <div class="unit">${unitTxt}</div>
+            <div class="price mono" style="color:${col}">${s.power ? s.power : '—'}</div>
+            <div class="unit">${s.power ? 'kW' : ''}</div>
+          </div>
+        </div>`;
+      }).join('');
+    } else {
+      listEl.innerHTML = list.map((s, idx) => {
+        const col = priceColor(s.t);
+        const selected = state.selectedId === s.id;
+        const subTxt = `${s.brand} · ${s.municipio} · ${s.dist.toFixed(1)} km`;
+        return `<div class="card ${selected?'selected':''}" data-id="${s.id}" style="border-color:${selected?col:'var(--border)'}">
+          <div class="bar" style="background:${col}"></div>
+          <div class="idx mono">${idx+1}</div>
+          <div class="mid">
+            <div class="name">${s.name}</div>
+            <div class="sub">${subTxt}</div>
+          </div>
+          <div class="price-wrap">
+            <div class="price mono" style="color:${col}">${s.price.toFixed(3)}€</div>
+            <div class="unit">/litro</div>
           </div>
         </div>`;
       }).join('');
@@ -567,20 +621,25 @@
 
     listEl.querySelectorAll('.card').forEach(card => {
       card.addEventListener('click', () => {
-        const id = Number(card.getAttribute('data-id'));
-        state.selectedId = id;
+        const id = card.getAttribute('data-id');
+        state.selectedId = isEv ? id : Number(id);
         renderAll(false);
-        const m = markersById[id];
+        const m = markersById[state.selectedId];
         if (m){ map.panTo(m.getLatLng()); m.openPopup(); }
       });
     });
 
     // legend + stats
-    document.getElementById('legendLo').textContent = list.length ? min.toFixed(isEv?2:3)+'€' : '—';
-    document.getElementById('legendHi').textContent = list.length ? max.toFixed(isEv?2:3)+'€' : '—';
-    document.getElementById('legend').style.visibility = (isEv || list.length===0) ? (list.length? 'visible':'hidden') : 'visible';
-    const avg = list.length ? list.reduce((a,s)=>a+s.price,0)/list.length : 0;
-    document.getElementById('stats').innerHTML = `${list.length} ${list.length===1?'resultado':'resultados'} · média <span class="v mono">${list.length? avg.toFixed(isEv?2:3):'—'}€${isEv?'/kWh':'/l'}</span>`;
+    if (isEv) {
+      document.getElementById('legend').style.visibility = 'hidden';
+      document.getElementById('stats').innerHTML = `${list.length} ${list.length===1?'posto encontrado':'postos encontrados'} · localizações via OpenStreetMap`;
+    } else {
+      document.getElementById('legendLo').textContent = list.length ? min.toFixed(3)+'€' : '—';
+      document.getElementById('legendHi').textContent = list.length ? max.toFixed(3)+'€' : '—';
+      document.getElementById('legend').style.visibility = list.length ? 'visible' : 'hidden';
+      const avg = list.length ? list.reduce((a,s)=>a+s.price,0)/list.length : 0;
+      document.getElementById('stats').innerHTML = `${list.length} ${list.length===1?'resultado':'resultados'} · média <span class="v mono">${list.length? avg.toFixed(3):'—'}€/l</span>`;
+    }
   }
 
   // ---------- render: chips ----------
