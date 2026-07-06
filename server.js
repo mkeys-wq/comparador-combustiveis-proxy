@@ -372,5 +372,9 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.listen(PORT, () => {
   console.log(`Comparador Combustível+ proxy a correr em http://localhost:${PORT}`);
+<<<<<<< HEAD
   console.log(`Testa primeiro: http://localhost:${PORT}/api/debug/raw-search?id=3201`);
 });
+=======
+});
+>>>>>>> a6cdf1e1c578c62deecdd73f97f81eb628978964
