@@ -82,6 +82,7 @@
   .distance-hud .sub{ font-size:10.5px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:1px; }
   .distance-hud .tags{ display:flex; gap:4px; margin-top:5px; flex-wrap:wrap; }
   .distance-hud .tag{ font-size:8.5px; font-weight:700; padding:2px 6px; border-radius:6px; background:rgba(255,255,255,0.06); color:var(--text-muted); text-transform:uppercase; }
+  .distance-hud .nav-tag{ display:inline-flex; align-items:center; gap:3px; text-decoration:none; border:1px solid var(--cyan); color:var(--cyan); background:rgba(34,211,238,0.1); font-size:9.5px; padding:4px 8px; text-transform:none; letter-spacing:0.2px; }
   .distance-hud .dist-block{ text-align:center; flex-shrink:0; padding:0 8px; border-left:1px solid var(--line); }
   .distance-hud .dist-val{ font-size:20px; font-weight:700; color:var(--cyan); line-height:1; }
   .distance-hud .dist-unit{ font-size:8.5px; color:var(--text-faint); text-transform:uppercase; }
@@ -427,7 +428,13 @@
     document.getElementById('hudName').textContent = s.name;
     document.getElementById('hudSub').textContent = s.operator;
     const tagsEl = document.getElementById('hudTags');
-    tagsEl.innerHTML = (s.connectors||[]).slice(0,3).map(c=>`<span class="tag">${c}</span>`).join('') + (s.free ? '<span class="tag" style="color:#34D399">grátis</span>' : '');
+    const gmapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lon}&travelmode=driving`;
+    const wazeUrl = `https://waze.com/ul?ll=${s.lat},${s.lon}&navigate=yes`;
+    tagsEl.innerHTML =
+      `<a class="tag nav-tag" href="${gmapsUrl}" target="_blank" rel="noopener">🗺️ Google Maps</a>` +
+      `<a class="tag nav-tag" href="${wazeUrl}" target="_blank" rel="noopener">🚗 Waze</a>` +
+      (s.connectors||[]).slice(0,3).map(c=>`<span class="tag">${c}</span>`).join('') +
+      (s.free ? '<span class="tag" style="color:#34D399">grátis</span>' : '');
     document.getElementById('hudDist').textContent = '···';
     document.getElementById('hudDistUnit').textContent = 'a calcular';
     hud.classList.add('show');
