@@ -19,7 +19,7 @@
   @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap');
 
   :root{
-    --bg:#05070C; --panel:rgba(10,14,24,0.74); --panel-solid:#0E1420;
+    --bg:#05070C; --panel:rgba(6,9,16,0.88); --panel-solid:#0E1420;
     --line:rgba(148,178,255,0.16); --line-strong:rgba(148,178,255,0.3);
     --text:#E8ECFB; --text-muted:#8892B8; --text-faint:#5A6488;
     --cyan:#22D3EE; --violet:#8B5CF6; --magenta:#EC4899;
@@ -56,10 +56,13 @@
   .brand .plus{ background:linear-gradient(135deg,var(--cyan),var(--violet)); -webkit-background-clip:text; background-clip:text; color:transparent; }
   .loc-pill{ flex:1; display:flex; align-items:center; gap:6px; padding:10px 12px; border-radius:14px; cursor:pointer; min-width:0; }
   .loc-pill span{ flex:1; font-size:12.5px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .icon-pill{ width:38px; height:38px; border-radius:14px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; color:var(--text-muted); font-size:15px; }
+  .icon-pill{ width:38px; height:38px; border-radius:14px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; color:var(--text); font-size:15px; }
   .icon-pill.active{ color:var(--cyan); border-color:rgba(34,211,238,0.4); }
-  #filterTrigger span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  #filterTrigger.active{ color:var(--cyan); border-color:rgba(34,211,238,0.4); }
+  #filterTrigger{ color:var(--text) !important; }
+  #filterTrigger span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text); }
+  #filterTrigger svg{ color:var(--text); }
+  #filterTrigger.active{ color:var(--cyan) !important; border-color:rgba(34,211,238,0.4); }
+  #filterTrigger.active span{ color:var(--cyan); }
 
   .info-box{ position:absolute; top:64px; left:14px; right:14px; z-index:499; font-size:11.5px; line-height:1.5; color:var(--text-muted); border-radius:12px; padding:10px 12px; display:none; }
   .info-box.open{ display:block; }
@@ -69,6 +72,19 @@
   .filter-panel{ position:absolute; top:64px; left:14px; right:14px; z-index:499; border-radius:16px; padding:12px; display:none; flex-direction:column; gap:10px; }
   .filter-panel.open{ display:flex; }
   .filter-row{ display:flex; flex-wrap:wrap; gap:6px; }
+  .autonomy-row{ display:flex; align-items:center; gap:6px; background:rgba(255,255,255,0.03); border:1px solid var(--line); border-radius:12px; padding:8px 10px; }
+  .autonomy-label{ font-size:11px; color:var(--text-muted); flex:1; }
+  .autonomy-row input{ width:56px; background:rgba(255,255,255,0.06); border:1px solid var(--line); border-radius:8px; padding:5px 6px; color:var(--text); font-size:12px; text-align:right; outline:none; }
+  .autonomy-row input:focus{ border-color:var(--cyan); }
+  .autonomy-unit{ font-size:11px; color:var(--text-faint); }
+  .autonomy-row button{ background:none; border:none; color:var(--text-faint); cursor:pointer; font-size:13px; padding:2px 4px; }
+  .autonomy-hint{ font-size:9.5px; color:var(--text-faint); line-height:1.4; }
+  .reach-tag{ font-size:8.5px; font-weight:700; padding:2px 6px; border-radius:6px; text-transform:uppercase; letter-spacing:0.3px; }
+  .reach-tag.ok{ background:rgba(52,211,153,0.18); color:#34D399; }
+  .reach-tag.no{ background:rgba(244,63,94,0.15); color:#F87171; }
+  .status-tag.open{ background:rgba(52,211,153,0.18); color:#34D399; }
+  .status-tag.closed{ background:rgba(244,63,94,0.15); color:#F87171; }
+  .ev-card.unreachable{ opacity:0.45; }
   .chip{ flex:0 0 auto; padding:7px 11px; border-radius:999px; border:1px solid var(--line); background:rgba(255,255,255,0.03); color:var(--text-muted); font-size:11.5px; font-weight:600; cursor:pointer; white-space:nowrap; transition:background .12s,border-color .12s,color .12s; }
   .chip.active-slow{ border:2px solid var(--cyan); background:rgba(34,211,238,0.22); color:var(--cyan); font-weight:800; }
   .chip.active-fast{ border:2px solid var(--violet); background:rgba(139,92,246,0.22); color:#C4B5FD; font-weight:800; }
@@ -106,6 +122,7 @@
   .fav-btn{ background:none; border:none; cursor:pointer; padding:2px; color:var(--text-faint); font-size:15px; line-height:1; flex-shrink:0; }
   .fav-btn.active{ color:#FBBF24; }
   .chip.active-fav{ border:2px solid #FBBF24; background:rgba(251,191,36,0.22); color:#FBBF24; font-weight:800; }
+  .chip.active-opennow{ border:2px solid #34D399; background:rgba(52,211,153,0.22); color:#34D399; font-weight:800; }
 
   .hud-line{ animation:dashscroll 0.9s linear infinite; }
   @keyframes dashscroll{ to{ stroke-dashoffset:-16; } }
@@ -121,6 +138,7 @@
   .ev-card .power{ font-size:15px; font-weight:700; font-family:'JetBrains Mono',monospace; flex-shrink:0; }
   .ev-card .sub{ font-size:10px; color:var(--text-muted); margin-top:5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .ev-card .dist{ font-size:10px; color:var(--text-faint); margin-top:2px; }
+  .ev-card .conn-row{ display:flex; gap:4px; margin-top:5px; flex-wrap:wrap; }
   .ev-card .fav-btn{ position:absolute; top:6px; right:6px; }
   .empty-card{ padding:16px 14px; text-align:center; color:var(--text-muted); font-size:12px; border-radius:16px; margin:0 14px; flex:1; }
   .loading-card{ padding:16px 14px; text-align:center; color:var(--cyan); font-size:12px; border-radius:16px; margin:0 14px; flex:1; display:flex; align-items:center; justify-content:center; gap:8px; }
@@ -183,11 +201,24 @@
         O "consumo estimado" ao selecionar um posto usa a <b>altitude real do percurso</b> (subidas custam mais,
         descidas recuperam parte via travagem regenerativa), mas assume valores médios (carro ~1600kg, ~170Wh/km,
         60% de recuperação) — não é o consumo exato do teu carro.
+        <br/><br/>
+        A etiqueta "alcança"/"fora de alcance" na lista usa uma <b>estimativa rápida</b> (linha reta × 1,3); a
+        estimativa exata (com altitude) só é calculada para o posto que selecionares.
+        <br/><br/>
+        "Aberto agora" baseia-se no horário indicado no OpenStreetMap, quando existe — postos sem horário indicado
+        são tratados como sempre acessíveis.
       </div>
 
       <div class="filter-panel glass" id="filterPanel">
         <div class="filter-row" id="powerFilters"></div>
         <div class="filter-row" id="connectorFilters"></div>
+        <div class="autonomy-row">
+          <span class="autonomy-label">🔋 Autonomia do carro</span>
+          <input type="number" id="autonomyInput" placeholder="ex: 150" min="0" max="900" />
+          <span class="autonomy-unit">km</span>
+          <button id="autonomyClear" title="Limpar">✕</button>
+        </div>
+        <div class="autonomy-hint">Marca os postos como alcançáveis com base numa estimativa (não é a rota exata).</div>
       </div>
 
       <div class="map-banner glass" id="mapBanner"></div>
@@ -220,7 +251,7 @@
         <div class="carousel" id="carousel"></div>
       </div>
 
-      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: radius20-v7</div>
+      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: autonomy-hours-v9</div>
     </div>
   </div>
 </div>
@@ -312,9 +343,65 @@
     return t ? t.color : '#7C88AD';
   }
 
+  // ---------- horário: interpretação simplificada do formato opening_hours do OSM ----------
+  // Cobre os casos mais comuns (24/7, "Mo-Fr 08:00-20:00", vários dias/horas
+  // separados por ; ou ,). Quando não consegue interpretar com confiança,
+  // devolve 'unknown' em vez de arriscar esconder um posto que está aberto.
+  const DAY_MAP = { Mo:1, Tu:2, We:3, Th:4, Fr:5, Sa:6, Su:0 };
+  function isOpenNow(openingHours){
+    if (!openingHours) return 'unknown';
+    const raw = openingHours.trim();
+    if (/^24\/7$/i.test(raw)) return true;
+    if (/^off$/i.test(raw) || /^closed$/i.test(raw)) return false;
+
+    const now = new Date();
+    const curDay = now.getDay();
+    const curMinutes = now.getHours()*60 + now.getMinutes();
+
+    const rules = raw.split(';').map(r => r.trim()).filter(Boolean);
+    let understoodAnyRule = false;
+
+    for (const rule of rules){
+      const m = rule.match(/^([A-Za-z,\-\s]*)\s*(\d.*)$/);
+      let dayPart = '', timePart = rule;
+      if (m){ dayPart = m[1].trim(); timePart = m[2].trim(); }
+
+      let days = null;
+      if (dayPart){
+        days = [];
+        dayPart.split(',').map(s => s.trim()).filter(Boolean).forEach(seg => {
+          if (seg.includes('-')){
+            const [a,b] = seg.split('-').map(s => s.trim());
+            if (DAY_MAP[a] != null && DAY_MAP[b] != null){
+              let d = DAY_MAP[a];
+              const end = DAY_MAP[b];
+              for (let i=0;i<7;i++){ days.push(d); if (d===end) break; d = (d+1)%7; }
+            }
+          } else if (DAY_MAP[seg] != null){
+            days.push(DAY_MAP[seg]);
+          }
+        });
+      }
+      if (days && days.length && !days.includes(curDay)) continue;
+
+      const timeRanges = timePart.split(',').map(t => t.trim());
+      for (const tr of timeRanges){
+        const tm = tr.match(/^(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})$/);
+        if (!tm) continue;
+        understoodAnyRule = true;
+        const startMin = parseInt(tm[1])*60 + parseInt(tm[2]);
+        let endMin = parseInt(tm[3])*60 + parseInt(tm[4]);
+        if (endMin <= startMin) endMin += 24*60; // intervalo que passa da meia-noite
+        if (curMinutes >= startMin && curMinutes <= endMin) return true;
+      }
+    }
+    return understoodAnyRule ? false : 'unknown';
+  }
+
   const state = {
     center: TOWNS[0], selectedId: null,
     powerFilter: 'all', connectorFilter: 'all', freeOnly: false, favoritesOnly: false,
+    openNowOnly: false, autonomyKm: null,
   };
   let renderToken = 0;
 
@@ -439,6 +526,8 @@
     el.innerHTML = `<div class="loading-card glass"><span class="loading-dot"></span><span class="loading-dot"></span><span class="loading-dot"></span>&nbsp;a procurar postos…</div>`;
   }
 
+  const ROAD_ESTIMATE_FACTOR = 1.3; // aproximação rápida para a lista (a exata só é calculada para o posto selecionado)
+
   function applyFilters(stations){
     return stations.filter(s => {
       if (state.freeOnly && !s.free) return false;
@@ -451,7 +540,14 @@
         const def = CONNECTOR_TYPES.find(c => c.key === state.connectorFilter);
         if (!def || !conns.some(c => def.match(c))) return false;
       }
+      if (state.openNowOnly){
+        const open = isOpenNow(s.openingHours);
+        if (open === false) return false;
+      }
       return true;
+    }).map(s => {
+      const reachable = state.autonomyKm ? (s.dist * ROAD_ESTIMATE_FACTOR) <= state.autonomyKm : null;
+      return { ...s, reachable };
     });
   }
 
@@ -543,7 +639,12 @@
         const diff = data.effectiveKm - data.distanceKm;
         const sinal = diff >= 0 ? '+' : '';
         const desc = data.elevationLossM > data.elevationGainM ? 'sobretudo a descer' : data.elevationGainM > data.elevationLossM ? 'sobretudo a subir' : 'terreno equilibrado';
-        consumoEl.innerHTML = `🔋 consumo estimado ≈ <b>${data.effectiveKm.toFixed(1)} km</b> em plano (${sinal}${diff.toFixed(1)}km, ${desc}: ↑${data.elevationGainM}m ↓${data.elevationLossM}m)`;
+        let autonomyLine = '';
+        if (state.autonomyKm){
+          const reach = data.effectiveKm <= state.autonomyKm;
+          autonomyLine = `<br/>${reach ? '✅ dentro da tua autonomia' : '⚠️ pode ficar fora da tua autonomia'} (${state.autonomyKm}km)`;
+        }
+        consumoEl.innerHTML = `🔋 consumo estimado ≈ <b>${data.effectiveKm.toFixed(1)} km</b> em plano (${sinal}${diff.toFixed(1)}km, ${desc}: ↑${data.elevationGainM}m ↓${data.elevationLossM}m)${autonomyLine}`;
       } else {
         consumoEl.textContent = '';
       }
@@ -591,7 +692,9 @@
       const marker = L.marker([s.lat, s.lon], { icon }).addTo(markersLayer);
       const powerTxt = s.power ? s.power + ' kW' : 'potência não indicada';
       const connTxt = s.connectors ? s.connectors.join(', ') : '';
-      marker.bindPopup(`<div class="popup-name">${s.name}</div><div class="popup-sub">${s.operator}${connTxt?' · '+connTxt:''}</div><div class="popup-power" style="color:${col}">${powerTxt}</div>`, { closeButton:false, autoClose:true });
+      const openStatus = isOpenNow(s.openingHours);
+      const statusTxt = openStatus === true ? ' · <span style="color:#34D399">aberto</span>' : openStatus === false ? ' · <span style="color:#F87171">fechado</span>' : '';
+      marker.bindPopup(`<div class="popup-name">${s.name}</div><div class="popup-sub">${s.operator}${connTxt?' · '+connTxt:''}${statusTxt}</div><div class="popup-power" style="color:${col}">${powerTxt}</div>`, { closeButton:false, autoClose:true });
       marker.on('click', () => { selectStation(s); marker.openPopup(); });
       markersById[s.id] = marker;
     });
@@ -661,7 +764,13 @@
       const col = colorForPower(s.power);
       const selected = state.selectedId === s.id;
       const fav = isFavorite(s.id);
-      return `<div class="ev-card glass ${selected?'selected':''}" data-id="${s.id}">
+      const unreachable = s.reachable === false;
+      const open = isOpenNow(s.openingHours);
+      const statusTag = open === true ? '<span class="reach-tag status-tag open">aberto</span>'
+        : open === false ? '<span class="reach-tag status-tag closed">fechado</span>' : '';
+      const reachTag = s.reachable === true ? '<span class="reach-tag ok">✓ alcança</span>'
+        : s.reachable === false ? '<span class="reach-tag no">fora de alcance</span>' : '';
+      return `<div class="ev-card glass ${selected?'selected':''} ${unreachable?'unreachable':''}" data-id="${s.id}">
         <button class="fav-btn ${fav?'active':''}" data-fav-id="${s.id}">${fav?'★':'☆'}</button>
         <div class="top-row">
           <div class="name">${s.name}</div>
@@ -669,6 +778,7 @@
         </div>
         <div class="sub">${s.operator}</div>
         <div class="dist">${s.dist.toFixed(1)} km${s.free ? ' · grátis' : ''}</div>
+        <div class="conn-row">${reachTag}${statusTag}</div>
       </div>`;
     }).join('');
     el.querySelectorAll('.ev-card').forEach(card => {
@@ -707,7 +817,8 @@
       `<button class="chip" data-power="all" data-label="Todas">Todas</button>` +
       POWER_TIERS.map(t => `<button class="chip" data-power="${t.key}" data-label="⚡ ${t.label}">⚡ ${t.label}</button>`).join('') +
       `<button class="chip" data-free="1" data-label="Grátis">Grátis</button>` +
-      `<button class="chip" data-favs="1" data-label="★ Favoritos">★ Favoritos</button>`;
+      `<button class="chip" data-favs="1" data-label="★ Favoritos">★ Favoritos</button>` +
+      `<button class="chip" data-opennow="1" data-label="🕐 Aberto agora">🕐 Aberto agora</button>`;
     powerEl.querySelectorAll('[data-power]').forEach(btn => {
       btn.addEventListener('click', () => {
         const key = btn.getAttribute('data-power');
@@ -721,6 +832,10 @@
     });
     powerEl.querySelector('[data-favs]').addEventListener('click', () => {
       state.favoritesOnly = !state.favoritesOnly;
+      onFilterChanged();
+    });
+    powerEl.querySelector('[data-opennow]').addEventListener('click', () => {
+      state.openNowOnly = !state.openNowOnly;
       onFilterChanged();
     });
 
@@ -749,7 +864,7 @@
   // o estado atual — corrige o bug de os botões nunca mostrarem qual está ativo.
   // Além da cor, prefixamos com "✓" — não depende de perceção de cor.
   function setChipVisual(btn, isOn, activeClass){
-    btn.classList.remove('active-neutral','active-slow','active-fast','active-ultra','active-free','active-fav');
+    btn.classList.remove('active-neutral','active-slow','active-fast','active-ultra','active-free','active-fav','active-opennow');
     const label = btn.getAttribute('data-label') || btn.textContent;
     if (isOn){
       btn.classList.add(activeClass);
@@ -769,6 +884,8 @@
     setChipVisual(freeBtn, state.freeOnly, 'active-free');
     const favsBtn = document.querySelector('#powerFilters [data-favs]');
     setChipVisual(favsBtn, state.favoritesOnly, 'active-fav');
+    const openNowBtn = document.querySelector('#powerFilters [data-opennow]');
+    setChipVisual(openNowBtn, state.openNowOnly, 'active-opennow');
 
     document.querySelectorAll('#connectorFilters [data-conn]').forEach(btn => {
       const isOn = state.connectorFilter === btn.getAttribute('data-conn');
@@ -787,11 +904,31 @@
     }
     if (state.freeOnly) parts.push('Grátis');
     if (state.favoritesOnly) parts.push('★ Favoritos');
+    if (state.openNowOnly) parts.push('🕐 Aberto');
+    if (state.autonomyKm) parts.push('🔋 '+state.autonomyKm+'km');
 
     const active = parts.length > 0;
     document.getElementById('filterTrigger').classList.toggle('active', active);
     document.getElementById('filterTriggerLabel').textContent = active ? parts.join(' · ') : 'Filtros';
   }
+
+  const autonomyInput = document.getElementById('autonomyInput');
+  let autonomyDebounce = null;
+  autonomyInput.addEventListener('input', () => {
+    clearTimeout(autonomyDebounce);
+    autonomyDebounce = setTimeout(() => {
+      const v = parseInt(autonomyInput.value, 10);
+      state.autonomyKm = (Number.isFinite(v) && v > 0) ? v : null;
+      refreshFilterTrigger();
+      renderAll();
+    }, 400);
+  });
+  document.getElementById('autonomyClear').addEventListener('click', () => {
+    autonomyInput.value = '';
+    state.autonomyKm = null;
+    refreshFilterTrigger();
+    renderAll();
+  });
 
   document.getElementById('filterTrigger').addEventListener('click', () => {
     document.getElementById('infoBox').classList.remove('open');

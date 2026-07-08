@@ -69,6 +69,7 @@ function parseOverpassStation(el) {
     power: maxPowerKw,
     connectors: connectors.length ? connectors : null,
     free: t.fee === 'no',
+    openingHours: t.opening_hours || null,
     source: 'OpenStreetMap',
   };
 }
