@@ -69,12 +69,12 @@
   .filter-panel{ position:absolute; top:64px; left:14px; right:14px; z-index:499; border-radius:16px; padding:12px; display:none; flex-direction:column; gap:10px; }
   .filter-panel.open{ display:flex; }
   .filter-row{ display:flex; flex-wrap:wrap; gap:6px; }
-  .chip{ flex:0 0 auto; padding:7px 11px; border-radius:999px; border:1px solid var(--line); background:rgba(255,255,255,0.03); color:var(--text-muted); font-size:11.5px; font-weight:600; cursor:pointer; white-space:nowrap; }
-  .chip.active-slow{ border-color:var(--cyan); background:rgba(34,211,238,0.15); color:var(--cyan); }
-  .chip.active-fast{ border-color:var(--violet); background:rgba(139,92,246,0.15); color:var(--violet); }
-  .chip.active-ultra{ border-color:var(--magenta); background:rgba(236,72,153,0.15); color:var(--magenta); }
-  .chip.active-neutral{ border-color:var(--text-muted); background:rgba(255,255,255,0.06); color:var(--text); }
-  .chip.active-free{ border-color:#34D399; background:rgba(52,211,153,0.15); color:#34D399; }
+  .chip{ flex:0 0 auto; padding:7px 11px; border-radius:999px; border:1px solid var(--line); background:rgba(255,255,255,0.03); color:var(--text-muted); font-size:11.5px; font-weight:600; cursor:pointer; white-space:nowrap; transition:background .12s,border-color .12s,color .12s; }
+  .chip.active-slow{ border:2px solid var(--cyan); background:rgba(34,211,238,0.22); color:var(--cyan); font-weight:800; }
+  .chip.active-fast{ border:2px solid var(--violet); background:rgba(139,92,246,0.22); color:#C4B5FD; font-weight:800; }
+  .chip.active-ultra{ border:2px solid var(--magenta); background:rgba(236,72,153,0.22); color:#F9A8D4; font-weight:800; }
+  .chip.active-neutral{ border:2px solid var(--cyan); background:rgba(34,211,238,0.22); color:var(--cyan); font-weight:800; }
+  .chip.active-free{ border:2px solid #34D399; background:rgba(52,211,153,0.22); color:#34D399; font-weight:800; }
 
   /* zoom control */
   .zoom-control{ position:absolute; right:14px; top:170px; width:44px; border-radius:16px; display:flex; flex-direction:column; align-items:center; z-index:400; overflow:hidden; }
@@ -95,6 +95,8 @@
   .distance-hud .name{ font-size:13px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .distance-hud .sub{ font-size:10.5px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:1px; }
   .distance-hud .tags{ display:flex; gap:4px; margin-top:5px; flex-wrap:wrap; }
+  .distance-hud .consumo{ font-size:10px; color:var(--text-muted); margin-top:6px; line-height:1.4; }
+  .distance-hud .consumo b{ color:var(--cyan); }
   .distance-hud .tag{ font-size:8.5px; font-weight:700; padding:2px 6px; border-radius:6px; background:rgba(255,255,255,0.06); color:var(--text-muted); text-transform:uppercase; }
   .distance-hud .nav-tag{ display:inline-flex; align-items:center; gap:3px; text-decoration:none; border:1px solid var(--cyan); color:var(--cyan); background:rgba(34,211,238,0.1); font-size:9.5px; padding:4px 8px; text-transform:none; letter-spacing:0.2px; }
   .distance-hud .dist-block{ text-align:center; flex-shrink:0; padding:0 8px; border-left:1px solid var(--line); }
@@ -103,7 +105,7 @@
   .distance-hud .close-btn{ background:none; border:none; color:var(--text-faint); font-size:16px; cursor:pointer; flex-shrink:0; padding:2px; }
   .fav-btn{ background:none; border:none; cursor:pointer; padding:2px; color:var(--text-faint); font-size:15px; line-height:1; flex-shrink:0; }
   .fav-btn.active{ color:#FBBF24; }
-  .chip.active-fav{ border-color:#FBBF24; background:rgba(251,191,36,0.15); color:#FBBF24; }
+  .chip.active-fav{ border:2px solid #FBBF24; background:rgba(251,191,36,0.22); color:#FBBF24; font-weight:800; }
 
   .hud-line{ animation:dashscroll 0.9s linear infinite; }
   @keyframes dashscroll{ to{ stroke-dashoffset:-16; } }
@@ -177,13 +179,15 @@
       <div class="info-box glass" id="infoBox">
         Localização, potência e tomada são <b>dados reais</b> do <b>OpenStreetMap</b> (comunidade). Não existe fonte
         pública com o preço exato em tempo real por posto, por isso não o mostramos.
+        <br/><br/>
+        O "consumo estimado" ao selecionar um posto usa a <b>altitude real do percurso</b> (subidas custam mais,
+        descidas recuperam parte via travagem regenerativa), mas assume valores médios (carro ~1600kg, ~170Wh/km,
+        60% de recuperação) — não é o consumo exato do teu carro.
       </div>
 
       <div class="filter-panel glass" id="filterPanel">
         <div class="filter-row" id="powerFilters"></div>
         <div class="filter-row" id="connectorFilters"></div>
-        <div class="filter-row" id="autonomyFilters"></div>
-        <div style="font-size:9.5px; color:var(--text-faint); line-height:1.4;">Alcance é uma estimativa (distância em linha reta × 1.3), não a rota exata.</div>
       </div>
 
       <div class="map-banner glass" id="mapBanner"></div>
@@ -202,6 +206,7 @@
           <div class="name" id="hudName"></div>
           <div class="sub" id="hudSub"></div>
           <div class="tags" id="hudTags"></div>
+          <div class="consumo" id="hudConsumo"></div>
         </div>
         <div class="dist-block">
           <div class="dist-val mono" id="hudDist">—</div>
@@ -215,7 +220,7 @@
         <div class="carousel" id="carousel"></div>
       </div>
 
-      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: pwa-favs-range-v4</div>
+      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: elevation-v6</div>
     </div>
   </div>
 </div>
@@ -273,8 +278,7 @@
     { key:'tesla', label:'Tesla', match:(c)=> c.includes('tesla') },
   ];
 
-  const AUTONOMY_TIERS = [50, 100, 200, 300];
-  const ROAD_ESTIMATE_FACTOR = 1.3; // aproximação: estrada costuma ser ~30% mais longa que linha reta
+  const SEARCH_RADIUS_KM = 50; // raio fixo de pesquisa (não ajustável pelo utilizador)
 
   const toRad = d => d * Math.PI / 180;
   function distanceKm(lat1, lon1, lat2, lon2){
@@ -308,11 +312,9 @@
     return t ? t.color : '#7C88AD';
   }
 
-  const SEARCH_RADIUS_KM = 20; // raio fixo de pesquisa (não ajustável pelo utilizador)
-
   const state = {
     center: TOWNS[0], selectedId: null,
-    powerFilter: 'all', connectorFilter: 'all', freeOnly: false, favoritesOnly: false, autonomyKm: 'all',
+    powerFilter: 'all', connectorFilter: 'all', freeOnly: false, favoritesOnly: false,
   };
   let renderToken = 0;
 
@@ -449,10 +451,6 @@
         const def = CONNECTOR_TYPES.find(c => c.key === state.connectorFilter);
         if (!def || !conns.some(c => def.match(c))) return false;
       }
-      if (state.autonomyKm !== 'all'){
-        const estimatedRoadKm = s.dist * ROAD_ESTIMATE_FACTOR;
-        if (estimatedRoadKm > state.autonomyKm) return false;
-      }
       return true;
     });
   }
@@ -473,16 +471,21 @@
   // ---------- selection + distance HUD ----------
   let routeRequestToken = 0;
 
-  function selectStation(s){
-    state.selectedId = s ? s.id : null;
+  function clearSelection(){
+    state.selectedId = null;
     if (hudLine){ map.removeLayer(hudLine); hudLine = null; }
+    document.getElementById('distanceHud').classList.remove('show');
+  }
 
-    const hud = document.getElementById('distanceHud');
+  function selectStation(s){
     if (!s){
-      hud.classList.remove('show');
+      clearSelection();
       renderAll();
       return;
     }
+    state.selectedId = s.id;
+    if (hudLine){ map.removeLayer(hudLine); hudLine = null; }
+    const hud = document.getElementById('distanceHud');
 
     document.getElementById('hudName').textContent = s.name;
     document.getElementById('hudSub').textContent = s.operator;
@@ -496,6 +499,7 @@
       (s.free ? '<span class="tag" style="color:#34D399">grátis</span>' : '');
     document.getElementById('hudDist').textContent = '···';
     document.getElementById('hudDistUnit').textContent = 'a calcular';
+    document.getElementById('hudConsumo').textContent = '';
     hud.classList.add('show');
 
     const favBtn = document.getElementById('hudFav');
@@ -533,6 +537,16 @@
 
       document.getElementById('hudDist').textContent = data.distanceKm.toFixed(1);
       document.getElementById('hudDistUnit').textContent = Math.round(data.durationMin) + ' min de carro';
+
+      const consumoEl = document.getElementById('hudConsumo');
+      if (data.effectiveKm != null){
+        const diff = data.effectiveKm - data.distanceKm;
+        const sinal = diff >= 0 ? '+' : '';
+        const desc = data.elevationLossM > data.elevationGainM ? 'sobretudo a descer' : data.elevationGainM > data.elevationLossM ? 'sobretudo a subir' : 'terreno equilibrado';
+        consumoEl.innerHTML = `🔋 consumo estimado ≈ <b>${data.effectiveKm.toFixed(1)} km</b> em plano (${sinal}${diff.toFixed(1)}km, ${desc}: ↑${data.elevationGainM}m ↓${data.elevationLossM}m)`;
+      } else {
+        consumoEl.textContent = '';
+      }
 
       if (hudLine){ map.removeLayer(hudLine); }
       hudLine = L.polyline(data.coordinates, {
@@ -690,35 +704,75 @@
   function renderFilterChips(){
     const powerEl = document.getElementById('powerFilters');
     powerEl.innerHTML =
-      `<button class="chip ${state.powerFilter==='all'?'active-neutral':''}" data-power="all">Todas</button>` +
-      POWER_TIERS.map(t => `<button class="chip ${state.powerFilter===t.key?'active-'+t.key:''}" data-power="${t.key}">⚡ ${t.label}</button>`).join('') +
-      `<button class="chip ${state.freeOnly?'active-free':''}" data-free="1">Grátis</button>` +
-      `<button class="chip ${state.favoritesOnly?'active-fav':''}" data-favs="1">★ Favoritos</button>`;
+      `<button class="chip" data-power="all" data-label="Todas">Todas</button>` +
+      POWER_TIERS.map(t => `<button class="chip" data-power="${t.key}" data-label="⚡ ${t.label}">⚡ ${t.label}</button>`).join('') +
+      `<button class="chip" data-free="1" data-label="Grátis">Grátis</button>` +
+      `<button class="chip" data-favs="1" data-label="★ Favoritos">★ Favoritos</button>`;
     powerEl.querySelectorAll('[data-power]').forEach(btn => {
-      btn.addEventListener('click', () => { state.powerFilter = btn.getAttribute('data-power'); refreshFilterTrigger(); renderAll(); });
+      btn.addEventListener('click', () => {
+        const key = btn.getAttribute('data-power');
+        state.powerFilter = (state.powerFilter === key) ? 'all' : key;
+        onFilterChanged();
+      });
     });
-    powerEl.querySelector('[data-free]').addEventListener('click', () => { state.freeOnly = !state.freeOnly; refreshFilterTrigger(); renderAll(); });
-    powerEl.querySelector('[data-favs]').addEventListener('click', () => { state.favoritesOnly = !state.favoritesOnly; refreshFilterTrigger(); renderAll(); });
+    powerEl.querySelector('[data-free]').addEventListener('click', () => {
+      state.freeOnly = !state.freeOnly;
+      onFilterChanged();
+    });
+    powerEl.querySelector('[data-favs]').addEventListener('click', () => {
+      state.favoritesOnly = !state.favoritesOnly;
+      onFilterChanged();
+    });
 
     const connEl = document.getElementById('connectorFilters');
     connEl.innerHTML =
-      `<button class="chip ${state.connectorFilter==='all'?'active-neutral':''}" data-conn="all">Todas as tomadas</button>` +
-      CONNECTOR_TYPES.map(c => `<button class="chip ${state.connectorFilter===c.key?'active-neutral':''}" data-conn="${c.key}">${c.label}</button>`).join('');
+      `<button class="chip" data-conn="all" data-label="Todas as tomadas">Todas as tomadas</button>` +
+      CONNECTOR_TYPES.map(c => `<button class="chip" data-conn="${c.key}" data-label="${c.label}">${c.label}</button>`).join('');
     connEl.querySelectorAll('[data-conn]').forEach(btn => {
-      btn.addEventListener('click', () => { state.connectorFilter = btn.getAttribute('data-conn'); refreshFilterTrigger(); renderAll(); });
+      btn.addEventListener('click', () => {
+        const key = btn.getAttribute('data-conn');
+        state.connectorFilter = (state.connectorFilter === key) ? 'all' : key;
+        onFilterChanged();
+      });
     });
 
-    const autoEl = document.getElementById('autonomyFilters');
-    autoEl.innerHTML =
-      `<button class="chip ${state.autonomyKm==='all'?'active-neutral':''}" data-auto="all">🔋 Todo o alcance</button>` +
-      AUTONOMY_TIERS.map(km => `<button class="chip ${state.autonomyKm===km?'active-neutral':''}" data-auto="${km}">≤${km} km</button>`).join('');
-    autoEl.querySelectorAll('[data-auto]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const v = btn.getAttribute('data-auto');
-        state.autonomyKm = v === 'all' ? 'all' : parseInt(v, 10);
-        refreshFilterTrigger();
-        renderAll();
-      });
+    syncFilterChipStates();
+  }
+
+  function onFilterChanged(){
+    syncFilterChipStates();
+    refreshFilterTrigger();
+    renderAll();
+  }
+
+  // Atualiza APENAS as classes visuais dos botões já existentes, para refletir
+  // o estado atual — corrige o bug de os botões nunca mostrarem qual está ativo.
+  // Além da cor, prefixamos com "✓" — não depende de perceção de cor.
+  function setChipVisual(btn, isOn, activeClass){
+    btn.classList.remove('active-neutral','active-slow','active-fast','active-ultra','active-free','active-fav');
+    const label = btn.getAttribute('data-label') || btn.textContent;
+    if (isOn){
+      btn.classList.add(activeClass);
+      btn.textContent = '✓ ' + label;
+    } else {
+      btn.textContent = label;
+    }
+  }
+
+  function syncFilterChipStates(){
+    document.querySelectorAll('#powerFilters [data-power]').forEach(btn => {
+      const key = btn.getAttribute('data-power');
+      const isOn = state.powerFilter === key;
+      setChipVisual(btn, isOn, key === 'all' ? 'active-neutral' : 'active-'+key);
+    });
+    const freeBtn = document.querySelector('#powerFilters [data-free]');
+    setChipVisual(freeBtn, state.freeOnly, 'active-free');
+    const favsBtn = document.querySelector('#powerFilters [data-favs]');
+    setChipVisual(favsBtn, state.favoritesOnly, 'active-fav');
+
+    document.querySelectorAll('#connectorFilters [data-conn]').forEach(btn => {
+      const isOn = state.connectorFilter === btn.getAttribute('data-conn');
+      setChipVisual(btn, isOn, 'active-neutral');
     });
   }
   function refreshFilterTrigger(){
@@ -733,7 +787,6 @@
     }
     if (state.freeOnly) parts.push('Grátis');
     if (state.favoritesOnly) parts.push('★ Favoritos');
-    if (state.autonomyKm !== 'all') parts.push('≤'+state.autonomyKm+'km');
 
     const active = parts.length > 0;
     document.getElementById('filterTrigger').classList.toggle('active', active);
@@ -760,6 +813,13 @@
     const myToken = ++renderToken;
     const list = await computeList();
     if (myToken !== renderToken) return;
+
+    // Se o posto que estava selecionado já não está na lista (mudou o filtro,
+    // a localização, etc.), limpa a seleção e a rota — antes ficavam presas.
+    if (state.selectedId && !list.some(s => s.id === state.selectedId)){
+      clearSelection();
+    }
+
     renderMap(list);
     renderCarousel(list);
   }

@@ -194,10 +194,18 @@ app.get('/api/rota', async (req, res) => {
     }
 
     const route = raw.routes[0];
+    const coordinates = (route.geometry.coordinates || []).map(([lon, lat]) => [lat, lon]);
+    const distanceKm = route.distance / 1000;
+
+    const elevation = await estimateElevationEffect(coordinates, distanceKm);
+
     const data = {
-      distanceKm: route.distance / 1000,
+      distanceKm,
       durationMin: route.duration / 60,
-      coordinates: (route.geometry.coordinates || []).map(([lon, lat]) => [lat, lon]),
+      coordinates,
+      elevationGainM: elevation ? elevation.gainM : null,
+      elevationLossM: elevation ? elevation.lossM : null,
+      effectiveKm: elevation ? elevation.effectiveKm : null,
     };
     routeCache[key] = { data, fetchedAt: now };
     res.json(data);
@@ -206,6 +214,60 @@ app.get('/api/rota', async (req, res) => {
     res.status(502).json({ error: 'Falha ao calcular a rota', detail: String(err.message || err) });
   }
 });
+
+// ---------------- Estimativa de consumo com base na altitude real do percurso ----------------
+// Modelo físico simplificado (não é uma medição exata do teu carro):
+// - assume-se uma massa e um consumo médio típicos de um EV
+// - subidas custam energia extra; descidas recuperam parte via travagem regenerativa
+const ASSUMED_MASS_KG = 1600;          // massa média assumida para um EV normal
+const ASSUMED_WH_PER_KM_FLAT = 170;    // consumo médio assumido em plano
+const REGEN_EFFICIENCY = 0.6;          // eficiência assumida da recuperação em descidas
+const G = 9.81;
+
+async function estimateElevationEffect(coordinates, distanceKm) {
+  try {
+    if (!coordinates || coordinates.length < 2) return null;
+
+    // amostra ~20 pontos ao longo da rota (a API tem limite de 100 por pedido)
+    const sampleCount = Math.min(20, coordinates.length);
+    const step = Math.max(1, Math.floor(coordinates.length / sampleCount));
+    const sampled = [];
+    for (let i = 0; i < coordinates.length; i += step) sampled.push(coordinates[i]);
+    if (sampled[sampled.length - 1] !== coordinates[coordinates.length - 1]) {
+      sampled.push(coordinates[coordinates.length - 1]);
+    }
+
+    const locations = sampled.map(([lat, lon]) => `${lat},${lon}`).join('|');
+    const url = `https://api.opentopodata.org/v1/eudem25m?locations=${locations}`;
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), 8000);
+    const r = await fetch(url, { signal: controller.signal });
+    clearTimeout(t);
+    if (!r.ok) return null;
+    const raw = await r.json();
+    if (raw.status !== 'OK' || !Array.isArray(raw.results)) return null;
+
+    const elevations = raw.results.map((p) => p.elevation).filter((e) => typeof e === 'number');
+    if (elevations.length < 2) return null;
+
+    let gainM = 0, lossM = 0;
+    for (let i = 1; i < elevations.length; i++) {
+      const delta = elevations[i] - elevations[i - 1];
+      if (delta > 0) gainM += delta; else lossM += -delta;
+    }
+
+    const extraKmUphill = (ASSUMED_MASS_KG * G * gainM / 3600) / ASSUMED_WH_PER_KM_FLAT;
+    const savedKmDownhill = REGEN_EFFICIENCY * (ASSUMED_MASS_KG * G * lossM / 3600) / ASSUMED_WH_PER_KM_FLAT;
+
+    // nunca deixar o "custo efetivo" cair abaixo de 50% da distância real — mesmo
+    // com descida contínua, há sempre atrito, travagens, e perdas do próprio motor
+    const effectiveKm = Math.max(distanceKm * 0.5, distanceKm + extraKmUphill - savedKmDownhill);
+
+    return { gainM: Math.round(gainM), lossM: Math.round(lossM), effectiveKm: Math.round(effectiveKm * 10) / 10 };
+  } catch (e) {
+    return null;
+  }
+}
 
 app.use(express.static(path.join(__dirname, 'public')));
 
