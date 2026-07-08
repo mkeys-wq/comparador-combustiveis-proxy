@@ -91,21 +91,29 @@ app.get('/api/ev-postos', async (req, res) => {
     if (evCache[cacheKey] && now - evCache[cacheKey].fetchedAt < EV_CACHE_TTL_MS) {
       stations = evCache[cacheKey].data;
     } else {
-      const query = `[out:json][timeout:25];node["amenity"="charging_station"](around:${radiusM},${centerLat},${centerLon});out body;`;
-      let raw = null;
-      let lastErr = null;
-      for (const base of OVERPASS_URLS) {
+      const query = `[out:json][timeout:12];node["amenity"="charging_station"](around:${radiusM},${centerLat},${centerLon});out body;`;
+
+      // Dispara pedidos a todos os espelhos do Overpass em SIMULTÂNEO e usa o
+      // primeiro que responder bem — muito mais rápido do que tentar um a um.
+      const attempts = OVERPASS_URLS.map(async (base) => {
+        const url = `${base}?data=${encodeURIComponent(query)}`;
+        const controller = new AbortController();
+        const t = setTimeout(() => controller.abort(), 10000);
         try {
-          const url = `${base}?data=${encodeURIComponent(query)}`;
-          const r = await fetch(url, { headers: { 'User-Agent': 'CargaMaisApp/1.0' } });
-          if (!r.ok) { lastErr = new Error(`${base} devolveu ${r.status} ${r.statusText}`); continue; }
-          raw = await r.json();
-          break;
-        } catch (e) {
-          lastErr = e;
+          const r = await fetch(url, { headers: { 'User-Agent': 'CargaMaisApp/1.0' }, signal: controller.signal });
+          if (!r.ok) throw new Error(`${base} devolveu ${r.status} ${r.statusText}`);
+          return await r.json();
+        } finally {
+          clearTimeout(t);
         }
+      });
+
+      let raw = null;
+      try {
+        raw = await Promise.any(attempts);
+      } catch (aggregateErr) {
+        throw new Error('Todos os servidores Overpass falharam');
       }
-      if (!raw) throw lastErr || new Error('Todos os servidores Overpass falharam');
       stations = (raw.elements || []).map(parseOverpassStation);
       evCache[cacheKey] = { data: stations, fetchedAt: now };
     }
@@ -124,6 +132,40 @@ app.get('/api/ev-postos', async (req, res) => {
 
 app.get('/api/health', (req, res) => {
   res.json({ ok: true, cachedQueries: Object.keys(evCache).length });
+});
+
+// ---------------- Pesquisa de localidades (qualquer sítio em Portugal) ----------------
+const geocodeCache = {};
+const GEOCODE_CACHE_TTL_MS = 60 * 60 * 1000; // 1h
+
+app.get('/api/geocode', async (req, res) => {
+  try {
+    const q = (req.query.q || '').trim();
+    if (q.length < 2) return res.json({ results: [] });
+
+    const key = q.toLowerCase();
+    const now = Date.now();
+    if (geocodeCache[key] && now - geocodeCache[key].fetchedAt < GEOCODE_CACHE_TTL_MS) {
+      return res.json({ results: geocodeCache[key].data });
+    }
+
+    const url = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=pt&addressdetails=1&limit=8&q=${encodeURIComponent(q)}`;
+    const r = await fetch(url, { headers: { 'User-Agent': 'CargaMaisApp/1.0 (busca de localidades)' } });
+    if (!r.ok) throw new Error(`Nominatim devolveu ${r.status} ${r.statusText}`);
+    const raw = await r.json();
+
+    const results = raw.map((item) => ({
+      name: item.display_name,
+      lat: parseFloat(item.lat),
+      lon: parseFloat(item.lon),
+    })).filter((r) => Number.isFinite(r.lat) && Number.isFinite(r.lon));
+
+    geocodeCache[key] = { data: results, fetchedAt: now };
+    res.json({ results });
+  } catch (err) {
+    console.error(err);
+    res.status(502).json({ error: 'Falha na pesquisa de localidades', detail: String(err.message || err) });
+  }
 });
 
 // ---------------- Distância e rota reais (por estrada, via OSRM) ----------------

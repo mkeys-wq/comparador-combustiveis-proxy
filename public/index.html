@@ -44,6 +44,8 @@
   .loc-pill span{ flex:1; font-size:12.5px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .icon-pill{ width:38px; height:38px; border-radius:14px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; color:var(--text-muted); font-size:15px; }
   .icon-pill.active{ color:var(--cyan); border-color:rgba(34,211,238,0.4); }
+  #filterTrigger span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #filterTrigger.active{ color:var(--cyan); border-color:rgba(34,211,238,0.4); }
 
   .info-box{ position:absolute; top:64px; left:14px; right:14px; z-index:499; font-size:11.5px; line-height:1.5; color:var(--text-muted); border-radius:12px; padding:10px 12px; display:none; }
   .info-box.open{ display:block; }
@@ -52,8 +54,7 @@
   /* filter popover panel */
   .filter-panel{ position:absolute; top:64px; left:14px; right:14px; z-index:499; border-radius:16px; padding:12px; display:none; flex-direction:column; gap:10px; }
   .filter-panel.open{ display:flex; }
-  .filter-row{ display:flex; gap:6px; overflow-x:auto; }
-  .filter-row::-webkit-scrollbar{ display:none; }
+  .filter-row{ display:flex; flex-wrap:wrap; gap:6px; }
   .chip{ flex:0 0 auto; padding:7px 11px; border-radius:999px; border:1px solid var(--line); background:rgba(255,255,255,0.03); color:var(--text-muted); font-size:11.5px; font-weight:600; cursor:pointer; white-space:nowrap; }
   .chip.active-slow{ border-color:var(--cyan); background:rgba(34,211,238,0.15); color:var(--cyan); }
   .chip.active-fast{ border-color:var(--violet); background:rgba(139,92,246,0.15); color:var(--violet); }
@@ -61,13 +62,11 @@
   .chip.active-neutral{ border-color:var(--text-muted); background:rgba(255,255,255,0.06); color:var(--text); }
   .chip.active-free{ border-color:#34D399; background:rgba(52,211,153,0.15); color:#34D399; }
 
-  /* vertical radius slider */
-  .side-slider{ position:absolute; right:14px; top:170px; bottom:150px; width:44px; z-index:400; border-radius:22px; display:flex; flex-direction:column; align-items:center; padding:10px 0; touch-action:none; }
-  .side-track{ position:relative; flex:1; width:6px; border-radius:4px; background:rgba(255,255,255,0.08); margin:4px 0; }
-  .side-fill{ position:absolute; bottom:0; left:0; width:100%; border-radius:4px; background:linear-gradient(180deg,var(--magenta),var(--violet) 50%,var(--cyan)); }
-  .side-puck{ position:absolute; left:50%; width:26px; height:26px; border-radius:50%; background:var(--panel-solid); border:2px solid var(--cyan); transform:translate(-50%,50%); box-shadow:0 0 10px rgba(34,211,238,0.5); }
-  .side-val{ font-size:11px; font-weight:700; color:var(--cyan); text-align:center; }
-  .side-unit{ font-size:8px; color:var(--text-faint); text-transform:uppercase; letter-spacing:0.5px; }
+  /* zoom control */
+  .zoom-control{ position:absolute; right:14px; top:170px; width:44px; border-radius:16px; display:flex; flex-direction:column; align-items:center; z-index:400; overflow:hidden; }
+  .zoom-btn{ width:44px; height:44px; border:none; background:transparent; color:var(--text); font-size:20px; font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+  .zoom-btn:active{ background:rgba(34,211,238,0.12); color:var(--cyan); }
+  .zoom-divider{ width:26px; height:1px; background:var(--line); }
 
   .map-empty{ position:absolute; inset:0; display:none; align-items:center; justify-content:center; color:var(--text-muted); font-size:12.5px; text-align:center; padding:30px; z-index:300; }
   .map-banner{ position:absolute; top:170px; left:14px; right:66px; z-index:497; font-size:10.5px; line-height:1.4; color:var(--violet); border-radius:10px; padding:8px 10px; display:none; }
@@ -103,6 +102,11 @@
   .ev-card .sub{ font-size:10px; color:var(--text-muted); margin-top:5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .ev-card .dist{ font-size:10px; color:var(--text-faint); margin-top:2px; }
   .empty-card{ padding:16px 14px; text-align:center; color:var(--text-muted); font-size:12px; border-radius:16px; margin:0 14px; flex:1; }
+  .loading-card{ padding:16px 14px; text-align:center; color:var(--cyan); font-size:12px; border-radius:16px; margin:0 14px; flex:1; display:flex; align-items:center; justify-content:center; gap:8px; }
+  .loading-dot{ width:6px; height:6px; border-radius:50%; background:var(--cyan); animation:pulseDot 1s ease-in-out infinite; }
+  .loading-dot:nth-child(2){ animation-delay:0.15s; }
+  .loading-dot:nth-child(3){ animation-delay:0.3s; }
+  @keyframes pulseDot{ 0%,100%{ opacity:0.25; transform:scale(0.8); } 50%{ opacity:1; transform:scale(1.1); } }
 
   .pin-dot{ border-radius:50%; border:2px solid var(--bg); display:flex; align-items:center; justify-content:center; font-size:9px; }
   .pin-dot.selected{ box-shadow:0 0 0 2px var(--bg), 0 0 0 4px currentColor, 0 0 14px 2px currentColor; }
@@ -135,7 +139,6 @@
     <div class="map-stage">
       <div id="map"></div>
       <div id="mapFallback"></div>
-      <div id="mapEmpty" class="map-empty">Aumenta o raio de pesquisa para veres postos no mapa.</div>
 
       <div class="topbar">
         <div class="brand-pill glass"><span class="brand display">CARGA<span class="plus">+</span></span></div>
@@ -143,8 +146,9 @@
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22D3EE" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
           <span id="locLabel">Arouca, Aveiro</span>
         </button>
-        <button class="icon-pill glass" id="filterTrigger" title="Filtros">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
+        <button class="loc-pill glass" id="filterTrigger" title="Filtros" style="flex:0 0 auto; max-width:140px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
+          <span id="filterTriggerLabel">Filtros</span>
         </button>
         <button class="icon-pill glass" id="infoBtn">ⓘ</button>
       </div>
@@ -161,13 +165,10 @@
 
       <div class="map-banner glass" id="mapBanner"></div>
 
-      <div class="side-slider glass" id="sideSlider">
-        <div class="side-val mono" id="sideVal">15</div>
-        <div class="side-unit">km</div>
-        <div class="side-track" id="sideTrack">
-          <div class="side-fill" id="sideFill"></div>
-          <div class="side-puck" id="sidePuck"></div>
-        </div>
+      <div class="zoom-control glass" id="zoomControl">
+        <button class="zoom-btn" id="zoomInBtn">+</button>
+        <div class="zoom-divider"></div>
+        <button class="zoom-btn" id="zoomOutBtn">−</button>
       </div>
 
       <button class="recenter-btn glass" id="recenterBtn" style="bottom:150px;" title="Recentrar">◎</button>
@@ -190,7 +191,7 @@
         <div class="carousel" id="carousel"></div>
       </div>
 
-      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: rota-v1</div>
+      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: zoom-v3</div>
     </div>
   </div>
 </div>
@@ -207,17 +208,11 @@
 
     <div class="search-wrap">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5A6488" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-      <input class="search-input" id="townSearch" placeholder="Procurar localidade…" />
+      <input class="search-input" id="townSearch" placeholder="Procurar morada, localidade ou zona em Portugal…" />
     </div>
+    <div class="geo-status" id="searchStatus"></div>
 
-    <div class="eyebrow">Inserir coordenadas manualmente</div>
-    <div class="manual-grid">
-      <input id="manualLat" type="number" step="0.0001" placeholder="Latitude (ex: 40.9333)" />
-      <input id="manualLon" type="number" step="0.0001" placeholder="Longitude (ex: -8.2500)" />
-    </div>
-    <button class="btn-secondary" id="manualApply">Aplicar coordenadas</button>
-
-    <div class="eyebrow">Localidades</div>
+    <div class="eyebrow" id="townListLabel">Sugestões</div>
     <div id="townList"></div>
   </div>
 </div>
@@ -286,8 +281,10 @@
     return t ? t.color : '#7C88AD';
   }
 
+  const SEARCH_RADIUS_KM = 20; // raio fixo de pesquisa (não ajustável pelo utilizador)
+
   const state = {
-    center: TOWNS[0], radius: 15, selectedId: null,
+    center: TOWNS[0], selectedId: null,
     powerFilter: 'all', connectorFilter: 'all', freeOnly: false,
   };
   let renderToken = 0;
@@ -296,7 +293,11 @@
   let usingFallbackMap = false;
   let tileLoadedOnce = false;
 
-  const map = L.map('map', { zoomControl: false, attributionControl: true }).setView([state.center.lat, state.center.lon], zoomForRadius(state.radius));
+  const map = L.map('map', { zoomControl: false, attributionControl: true }).setView([state.center.lat, state.center.lon], zoomForRadius(SEARCH_RADIUS_KM));
+
+  function recenterMap(){
+    map.setView([state.center.lat, state.center.lon], zoomForRadius(SEARCH_RADIUS_KM));
+  }
 
   const streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OSM', maxZoom: 19, className: 'dark-tiles'
@@ -327,15 +328,15 @@
 
   function setFallbackMode(on){
     usingFallbackMap = on;
-    document.getElementById('map').style.display = on ? 'none' : (state.radius===0 ? 'none' : 'block');
-    document.getElementById('mapFallback').style.display = on ? (state.radius===0 ? 'none' : 'block') : 'none';
+    document.getElementById('map').style.display = on ? 'none' : 'block';
+    document.getElementById('mapFallback').style.display = on ? 'block' : 'none';
     document.getElementById('mapToggle').classList.toggle('active', on);
     if (on) setTimeout(() => renderAll(), 0);
     else { setTimeout(() => map.invalidateSize(), 100); renderAll(); }
   }
 
   let radiusCircle = L.circle([state.center.lat, state.center.lon], {
-    radius: state.radius*1000, color: C.cyan, weight: 1.2, fillColor: C.cyan, fillOpacity: 0.05
+    radius: SEARCH_RADIUS_KM*1000, color: C.cyan, weight: 1.2, fillColor: C.cyan, fillOpacity: 0.05
   }).addTo(map);
 
   const centerIcon = L.divIcon({ className:'', html:'<div class="center-pin"></div>', iconSize:[20,20], iconAnchor:[10,10] });
@@ -347,7 +348,7 @@
   });
 
   document.getElementById('recenterBtn').addEventListener('click', () => {
-    map.setView([state.center.lat, state.center.lon], zoomForRadius(state.radius));
+    recenterMap();
   });
 
   let markersLayer = L.layerGroup().addTo(map);
@@ -359,9 +360,11 @@
   let lastFetchKey = '';
 
   async function fetchStations(){
-    const key = `${state.center.lat.toFixed(3)},${state.center.lon.toFixed(3)},${state.radius}`;
+    const key = `${state.center.lat.toFixed(3)},${state.center.lon.toFixed(3)}`;
     if (key === lastFetchKey) return rawStations;
-    const url = `/api/ev-postos?lat=${state.center.lat}&lon=${state.center.lon}&raio=${state.radius}`;
+    isLoadingStations = true;
+    renderLoadingState();
+    const url = `/api/ev-postos?lat=${state.center.lat}&lon=${state.center.lon}&raio=${SEARCH_RADIUS_KM}`;
     try {
       const res = await fetch(url);
       if (!res.ok) return rawStations;
@@ -372,7 +375,16 @@
       return rawStations;
     } catch (e) {
       return rawStations;
+    } finally {
+      isLoadingStations = false;
     }
+  }
+
+  let isLoadingStations = false;
+  function renderLoadingState(){
+    if (!isLoadingStations) return;
+    const el = document.getElementById('carousel');
+    el.innerHTML = `<div class="loading-card glass"><span class="loading-dot"></span><span class="loading-dot"></span><span class="loading-dot"></span>&nbsp;a procurar postos…</div>`;
   }
 
   function applyFilters(stations){
@@ -461,24 +473,22 @@
 
   // ---------- render: map ----------
   function renderMap(list){
-    document.getElementById('mapEmpty').style.display = state.radius === 0 ? 'flex' : 'none';
-    document.getElementById('map').style.display = usingFallbackMap ? 'none' : (state.radius===0 ? 'none' : 'block');
-    document.getElementById('mapFallback').style.display = usingFallbackMap ? (state.radius===0 ? 'none' : 'block') : 'none';
+    document.getElementById('map').style.display = usingFallbackMap ? 'none' : 'block';
+    document.getElementById('mapFallback').style.display = usingFallbackMap ? 'block' : 'none';
 
     if (usingFallbackMap){
-      if (state.radius > 0) renderFallbackMap(list);
+      renderFallbackMap(list);
       return;
     }
 
     markersLayer.clearLayers();
     Object.keys(markersById).forEach(k => delete markersById[k]);
 
-    map.setView([state.center.lat, state.center.lon], zoomForRadius(state.radius));
+    // Nota: não chamamos map.setView aqui de propósito — selecionar um posto ou
+    // atualizar a lista não deve mexer no zoom/posição que o utilizador escolheu.
     radiusCircle.setLatLng([state.center.lat, state.center.lon]);
-    radiusCircle.setRadius(state.radius*1000);
+    radiusCircle.setRadius(SEARCH_RADIUS_KM*1000);
     centerMarker.setLatLng([state.center.lat, state.center.lon]);
-
-    if (state.radius === 0) return;
 
     list.forEach(s => {
       const col = colorForPower(s.power);
@@ -499,8 +509,8 @@
 
   function renderFallbackMap(list){
     const size = 320, cx = size/2, cy = size/2, maxR = 140;
-    const pxPerKm = state.radius > 0 ? maxR/state.radius : 0;
-    const rings = state.radius >= 20 ? [state.radius*0.34, state.radius*0.67, state.radius] : state.radius >= 8 ? [state.radius*0.5, state.radius] : [state.radius];
+    const pxPerKm = maxR/SEARCH_RADIUS_KM;
+    const rings = [SEARCH_RADIUS_KM*0.34, SEARCH_RADIUS_KM*0.67, SEARCH_RADIUS_KM];
 
     let svg = `<svg viewBox="0 0 ${size} ${size}" width="100%" height="100%" style="display:block">`;
     svg += `<rect width="${size}" height="${size}" fill="#04070D"/>`;
@@ -514,7 +524,7 @@
       const sel = list.find(s => s.id === state.selectedId);
       if (sel){
         const bearing = bearingDeg(state.center.lat, state.center.lon, sel.lat, sel.lon);
-        const rp = Math.min(sel.dist, state.radius) * pxPerKm;
+        const rp = Math.min(sel.dist, SEARCH_RADIUS_KM) * pxPerKm;
         const rad = toRad(bearing);
         const x = cx + rp*Math.sin(rad), y = cy - rp*Math.cos(rad);
         svg += `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="${C.cyan}" stroke-width="1.5" stroke-dasharray="5 5" opacity="0.8"/>`;
@@ -523,7 +533,7 @@
 
     list.forEach(s => {
       const bearing = bearingDeg(state.center.lat, state.center.lon, s.lat, s.lon);
-      const rp = Math.min(s.dist, state.radius) * pxPerKm;
+      const rp = Math.min(s.dist, SEARCH_RADIUS_KM) * pxPerKm;
       const rad = toRad(bearing);
       const x = cx + rp*Math.sin(rad), y = cy - rp*Math.cos(rad);
       const col = colorForPower(s.power);
@@ -603,8 +613,20 @@
     });
   }
   function refreshFilterTrigger(){
-    const active = state.powerFilter!=='all' || state.connectorFilter!=='all' || state.freeOnly;
+    const parts = [];
+    if (state.powerFilter !== 'all'){
+      const t = POWER_TIERS.find(t => t.key === state.powerFilter);
+      if (t) parts.push(t.label.split(' ')[0]); // "Lenta"/"Rápida"/"Ultra"
+    }
+    if (state.connectorFilter !== 'all'){
+      const c = CONNECTOR_TYPES.find(c => c.key === state.connectorFilter);
+      if (c) parts.push(c.label);
+    }
+    if (state.freeOnly) parts.push('Grátis');
+
+    const active = parts.length > 0;
     document.getElementById('filterTrigger').classList.toggle('active', active);
+    document.getElementById('filterTriggerLabel').textContent = active ? parts.join(' · ') : 'Filtros';
   }
 
   document.getElementById('filterTrigger').addEventListener('click', () => {
@@ -613,48 +635,13 @@
     document.getElementById('filterPanel').classList.toggle('open');
   });
 
-  // ---------- vertical radius slider ----------
-  const sideTrack = document.getElementById('sideTrack');
-  function updateSliderVisual(){
-    const frac = state.radius/30;
-    document.getElementById('sideFill').style.height = (frac*100)+'%';
-    document.getElementById('sidePuck').style.bottom = (frac*100)+'%';
-    document.getElementById('sideVal').textContent = state.radius;
-  }
-  function updateRadiusPreview(){
-    // feedback instantâneo, sem pedir dados novos ao servidor
-    radiusCircle.setLatLng([state.center.lat, state.center.lon]);
-    radiusCircle.setRadius(state.radius*1000);
-    if (!usingFallbackMap) map.setView([state.center.lat, state.center.lon], zoomForRadius(state.radius));
-    document.getElementById('mapEmpty').style.display = state.radius === 0 ? 'flex' : 'none';
-  }
-  let sliderDragging = false;
-  let radiusDebounce = null;
-  function radiusFromClientY(clientY){
-    const rect = sideTrack.getBoundingClientRect();
-    const frac = 1 - (clientY - rect.top)/rect.height;
-    return Math.max(0, Math.min(30, Math.round(frac*30)));
-  }
-  function handleSliderPointer(e){
-    const point = e.touches ? e.touches[0] : e;
-    const r = radiusFromClientY(point.clientY);
-    if (r !== state.radius){
-      state.radius = r;
-      updateSliderVisual();
-      updateRadiusPreview();
-      clearTimeout(radiusDebounce);
-      radiusDebounce = setTimeout(() => renderAll(), 280);
-    }
-  }
-  const sideSlider = document.getElementById('sideSlider');
-  sideSlider.addEventListener('pointerdown', (e) => { sliderDragging = true; sideSlider.setPointerCapture(e.pointerId); handleSliderPointer(e); });
-  sideSlider.addEventListener('pointermove', (e) => { if (sliderDragging) handleSliderPointer(e); });
-  sideSlider.addEventListener('pointerup', () => {
-    sliderDragging = false;
-    clearTimeout(radiusDebounce);
-    renderAll();
+  // ---------- zoom control ----------
+  document.getElementById('zoomInBtn').addEventListener('click', () => {
+    if (!usingFallbackMap) map.zoomIn();
   });
-  sideSlider.addEventListener('pointercancel', () => { sliderDragging = false; });
+  document.getElementById('zoomOutBtn').addEventListener('click', () => {
+    if (!usingFallbackMap) map.zoomOut();
+  });
 
   // ---------- master render ----------
   async function renderAll(){
@@ -676,7 +663,11 @@
 
   // ---------- location sheet ----------
   const sheetBackdrop = document.getElementById('sheetBackdrop');
-  document.getElementById('locBar').addEventListener('click', () => { sheetBackdrop.classList.add('open'); renderTownList(); });
+  document.getElementById('locBar').addEventListener('click', () => {
+    sheetBackdrop.classList.add('open');
+    document.getElementById('townSearch').value = '';
+    renderSuggestions();
+  });
   document.getElementById('sheetClose').addEventListener('click', () => sheetBackdrop.classList.remove('open'));
   sheetBackdrop.addEventListener('click', (e) => { if (e.target === sheetBackdrop) sheetBackdrop.classList.remove('open'); });
 
@@ -689,6 +680,7 @@
         state.center = { name:'A minha localização', lat: pos.coords.latitude, lon: pos.coords.longitude };
         statusEl.textContent = '';
         sheetBackdrop.classList.remove('open');
+        recenterMap();
         selectStation(null);
       },
       (err) => {
@@ -703,44 +695,79 @@
     );
   });
 
-  document.getElementById('manualApply').addEventListener('click', () => {
-    const lat = parseFloat(document.getElementById('manualLat').value);
-    const lon = parseFloat(document.getElementById('manualLon').value);
-    if (isNaN(lat) || isNaN(lon)){ return; }
-    state.center = { name: `Localização manual (${lat.toFixed(4)}, ${lon.toFixed(4)})`, lat, lon };
+  function selectPlace(name, lat, lon){
+    state.center = { name, lat, lon };
+    document.getElementById('townSearch').value = '';
     sheetBackdrop.classList.remove('open');
+    recenterMap();
     selectStation(null);
-  });
+  }
 
-  document.getElementById('townSearch').addEventListener('input', renderTownList);
-
-  function renderTownList(){
-    const q = document.getElementById('townSearch').value.toLowerCase();
-    const filtered = TOWNS.filter(t => t.name.toLowerCase().includes(q));
+  function renderSuggestions(){
+    document.getElementById('townListLabel').textContent = 'Sugestões';
+    document.getElementById('searchStatus').textContent = '';
     const townListEl = document.getElementById('townList');
-    if (filtered.length === 0){
-      townListEl.innerHTML = `<div style="font-size:12px;color:var(--text-muted);padding:10px 4px;">Nenhuma localidade encontrada.</div>`;
-      return;
-    }
-    townListEl.innerHTML = filtered.map(t => `
-      <button class="town-btn ${t.name===state.center.name?'active':''}" data-name="${t.name}">
+    townListEl.innerHTML = TOWNS.map(t => `
+      <button class="town-btn ${t.name===state.center.name?'active':''}" data-name="${t.name}" data-lat="${t.lat}" data-lon="${t.lon}">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8892B8" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-        ${t.name}
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${t.name}</span>
       </button>`).join('');
-    townListEl.querySelectorAll('.town-btn').forEach(btn => {
+    wireTownButtons();
+  }
+
+  function wireTownButtons(){
+    document.querySelectorAll('#townList .town-btn').forEach(btn => {
       btn.addEventListener('click', () => {
-        const town = TOWNS.find(t => t.name === btn.getAttribute('data-name'));
-        state.center = town;
-        document.getElementById('townSearch').value = '';
-        sheetBackdrop.classList.remove('open');
-        selectStation(null);
+        selectPlace(btn.getAttribute('data-name'), parseFloat(btn.getAttribute('data-lat')), parseFloat(btn.getAttribute('data-lon')));
       });
     });
   }
 
+  let searchDebounce = null;
+  let searchToken = 0;
+
+  document.getElementById('townSearch').addEventListener('input', () => {
+    const q = document.getElementById('townSearch').value.trim();
+    clearTimeout(searchDebounce);
+    if (q.length < 2){
+      renderSuggestions();
+      return;
+    }
+    document.getElementById('townListLabel').textContent = 'Resultados';
+    document.getElementById('searchStatus').textContent = 'A procurar…';
+    searchDebounce = setTimeout(() => runGeocodeSearch(q), 400);
+  });
+
+  async function runGeocodeSearch(q){
+    const myToken = ++searchToken;
+    try {
+      const res = await fetch(`/api/geocode?q=${encodeURIComponent(q)}`);
+      if (myToken !== searchToken) return;
+      const json = await res.json();
+      const results = Array.isArray(json.results) ? json.results : [];
+      const statusEl = document.getElementById('searchStatus');
+      const townListEl = document.getElementById('townList');
+      if (results.length === 0){
+        statusEl.textContent = '';
+        townListEl.innerHTML = `<div style="font-size:12px;color:var(--text-muted);padding:10px 4px;">Nenhum resultado encontrado.</div>`;
+        return;
+      }
+      statusEl.textContent = '';
+      townListEl.innerHTML = results.map(r => `
+        <button class="town-btn" data-name="${r.name.replace(/"/g,'&quot;')}" data-lat="${r.lat}" data-lon="${r.lon}">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8892B8" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.name}</span>
+        </button>`).join('');
+      wireTownButtons();
+    } catch (e) {
+      if (myToken !== searchToken) return;
+      document.getElementById('searchStatus').textContent = 'Falha na pesquisa. Tenta novamente.';
+    }
+  }
+
   // ---------- boot ----------
   renderFilterChips();
-  updateSliderVisual();
+  refreshFilterTrigger();
   renderAll();
   setTimeout(() => map.invalidateSize(), 200);
 })();
