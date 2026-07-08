@@ -1,3 +1,17 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+<title>CARGA+ — Postos de Carregamento Elétrico</title>
+<meta name="description" content="Encontra postos de carregamento elétrico reais perto de ti, com rota e distância real por estrada." />
+<meta name="theme-color" content="#05070C" />
+<link rel="manifest" href="/manifest.json" />
+<link rel="icon" href="/icon-192.png" />
+<link rel="apple-touch-icon" href="/icon-192.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="CARGA+" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 
@@ -87,6 +101,9 @@
   .distance-hud .dist-val{ font-size:20px; font-weight:700; color:var(--cyan); line-height:1; }
   .distance-hud .dist-unit{ font-size:8.5px; color:var(--text-faint); text-transform:uppercase; }
   .distance-hud .close-btn{ background:none; border:none; color:var(--text-faint); font-size:16px; cursor:pointer; flex-shrink:0; padding:2px; }
+  .fav-btn{ background:none; border:none; cursor:pointer; padding:2px; color:var(--text-faint); font-size:15px; line-height:1; flex-shrink:0; }
+  .fav-btn.active{ color:#FBBF24; }
+  .chip.active-fav{ border-color:#FBBF24; background:rgba(251,191,36,0.15); color:#FBBF24; }
 
   .hud-line{ animation:dashscroll 0.9s linear infinite; }
   @keyframes dashscroll{ to{ stroke-dashoffset:-16; } }
@@ -95,13 +112,14 @@
   .carousel-wrap{ position:absolute; left:0; right:0; bottom:0; z-index:400; padding:10px 0 14px; }
   .carousel{ display:flex; gap:8px; overflow-x:auto; padding:0 14px; scroll-snap-type:x proximity; }
   .carousel::-webkit-scrollbar{ display:none; }
-  .ev-card{ scroll-snap-align:start; flex:0 0 auto; width:150px; border-radius:16px; padding:10px 11px; cursor:pointer; }
+  .ev-card{ scroll-snap-align:start; flex:0 0 auto; width:150px; border-radius:16px; padding:10px 11px; cursor:pointer; position:relative; }
   .ev-card.selected{ border-color:var(--cyan); box-shadow:0 0 0 1px var(--cyan); }
   .ev-card .top-row{ display:flex; justify-content:space-between; align-items:flex-start; gap:6px; }
-  .ev-card .name{ font-size:12px; font-weight:700; line-height:1.25; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+  .ev-card .name{ font-size:12px; font-weight:700; line-height:1.25; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; flex:1; min-width:0; }
   .ev-card .power{ font-size:15px; font-weight:700; font-family:'JetBrains Mono',monospace; flex-shrink:0; }
   .ev-card .sub{ font-size:10px; color:var(--text-muted); margin-top:5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .ev-card .dist{ font-size:10px; color:var(--text-faint); margin-top:2px; }
+  .ev-card .fav-btn{ position:absolute; top:6px; right:6px; }
   .empty-card{ padding:16px 14px; text-align:center; color:var(--text-muted); font-size:12px; border-radius:16px; margin:0 14px; flex:1; }
   .loading-card{ padding:16px 14px; text-align:center; color:var(--cyan); font-size:12px; border-radius:16px; margin:0 14px; flex:1; display:flex; align-items:center; justify-content:center; gap:8px; }
   .loading-dot{ width:6px; height:6px; border-radius:50%; background:var(--cyan); animation:pulseDot 1s ease-in-out infinite; }
@@ -134,6 +152,8 @@
   .manual-grid input{ width:100%; background:rgba(255,255,255,0.04); border:1px solid var(--line); border-radius:10px; padding:10px; color:var(--text); font-size:13px; outline:none; }
   .btn-secondary{ width:100%; background:linear-gradient(135deg,var(--cyan),var(--violet)); border:none; border-radius:12px; padding:11px; color:#05070C; font-weight:700; font-size:13px; cursor:pointer; margin-bottom:16px; }
 </style>
+</head>
+<body>
 
 <div class="app-wrap">
   <div class="phone">
@@ -162,6 +182,8 @@
       <div class="filter-panel glass" id="filterPanel">
         <div class="filter-row" id="powerFilters"></div>
         <div class="filter-row" id="connectorFilters"></div>
+        <div class="filter-row" id="autonomyFilters"></div>
+        <div style="font-size:9.5px; color:var(--text-faint); line-height:1.4;">Alcance é uma estimativa (distância em linha reta × 1.3), não a rota exata.</div>
       </div>
 
       <div class="map-banner glass" id="mapBanner"></div>
@@ -185,6 +207,7 @@
           <div class="dist-val mono" id="hudDist">—</div>
           <div class="dist-unit" id="hudDistUnit">km</div>
         </div>
+        <button class="fav-btn" id="hudFav" title="Guardar nos favoritos">☆</button>
         <button class="close-btn" id="hudClose">✕</button>
       </div>
 
@@ -192,7 +215,7 @@
         <div class="carousel" id="carousel"></div>
       </div>
 
-      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: zoom-v3</div>
+      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: pwa-favs-range-v4</div>
     </div>
   </div>
 </div>
@@ -250,6 +273,9 @@
     { key:'tesla', label:'Tesla', match:(c)=> c.includes('tesla') },
   ];
 
+  const AUTONOMY_TIERS = [50, 100, 200, 300];
+  const ROAD_ESTIMATE_FACTOR = 1.3; // aproximação: estrada costuma ser ~30% mais longa que linha reta
+
   const toRad = d => d * Math.PI / 180;
   function distanceKm(lat1, lon1, lat2, lon2){
     const R = 6371;
@@ -286,9 +312,32 @@
 
   const state = {
     center: TOWNS[0], selectedId: null,
-    powerFilter: 'all', connectorFilter: 'all', freeOnly: false,
+    powerFilter: 'all', connectorFilter: 'all', freeOnly: false, favoritesOnly: false, autonomyKm: 'all',
   };
   let renderToken = 0;
+
+  // ---------- favoritos (guardados no telemóvel, localStorage) ----------
+  const FAV_KEY = 'cargamais_favoritos';
+  function getFavorites(){
+    try { return JSON.parse(localStorage.getItem(FAV_KEY) || '[]'); }
+    catch (e) { return []; }
+  }
+  function saveFavorites(list){
+    try { localStorage.setItem(FAV_KEY, JSON.stringify(list)); } catch (e) {}
+  }
+  function isFavorite(id){
+    return getFavorites().some(f => f.id === id);
+  }
+  function toggleFavorite(s){
+    const favs = getFavorites();
+    const idx = favs.findIndex(f => f.id === s.id);
+    if (idx >= 0){
+      favs.splice(idx, 1);
+    } else {
+      favs.push({ id:s.id, name:s.name, operator:s.operator, lat:s.lat, lon:s.lon, power:s.power, connectors:s.connectors, free:s.free });
+    }
+    saveFavorites(favs);
+  }
 
   // ---------- map init ----------
   let usingFallbackMap = false;
@@ -400,11 +449,21 @@
         const def = CONNECTOR_TYPES.find(c => c.key === state.connectorFilter);
         if (!def || !conns.some(c => def.match(c))) return false;
       }
+      if (state.autonomyKm !== 'all'){
+        const estimatedRoadKm = s.dist * ROAD_ESTIMATE_FACTOR;
+        if (estimatedRoadKm > state.autonomyKm) return false;
+      }
       return true;
     });
   }
 
   async function computeList(){
+    if (state.favoritesOnly){
+      const favs = getFavorites().map(f => ({ ...f, dist: distanceKm(state.center.lat, state.center.lon, f.lat, f.lon) }));
+      let list = applyFilters(favs);
+      list.sort((a,b) => a.dist - b.dist);
+      return list;
+    }
     const stations = await fetchStations();
     let list = applyFilters(stations);
     list.sort((a,b) => a.dist - b.dist);
@@ -438,6 +497,16 @@
     document.getElementById('hudDist').textContent = '···';
     document.getElementById('hudDistUnit').textContent = 'a calcular';
     hud.classList.add('show');
+
+    const favBtn = document.getElementById('hudFav');
+    favBtn.textContent = isFavorite(s.id) ? '★' : '☆';
+    favBtn.classList.toggle('active', isFavorite(s.id));
+    favBtn.onclick = () => {
+      toggleFavorite(s);
+      favBtn.textContent = isFavorite(s.id) ? '★' : '☆';
+      favBtn.classList.toggle('active', isFavorite(s.id));
+      if (state.favoritesOnly) renderAll();
+    };
 
     // linha reta imediata, como referência enquanto a rota real carrega
     hudLine = L.polyline([[state.center.lat, state.center.lon],[s.lat, s.lon]], {
@@ -569,13 +638,17 @@
   function renderCarousel(list){
     const el = document.getElementById('carousel');
     if (list.length === 0){
-      el.innerHTML = `<div class="empty-card glass">Sem postos com estes filtros. Aumenta o raio ou ajusta os filtros.</div>`;
+      el.innerHTML = state.favoritesOnly
+        ? `<div class="empty-card glass">Ainda não tens postos favoritos. Toca na estrela ☆ num posto para o guardares.</div>`
+        : `<div class="empty-card glass">Sem postos com estes filtros. Aumenta o raio ou ajusta os filtros.</div>`;
       return;
     }
     el.innerHTML = list.map(s => {
       const col = colorForPower(s.power);
       const selected = state.selectedId === s.id;
+      const fav = isFavorite(s.id);
       return `<div class="ev-card glass ${selected?'selected':''}" data-id="${s.id}">
+        <button class="fav-btn ${fav?'active':''}" data-fav-id="${s.id}">${fav?'★':'☆'}</button>
         <div class="top-row">
           <div class="name">${s.name}</div>
           <div class="power mono" style="color:${col}">${s.power||'—'}</div>
@@ -597,6 +670,20 @@
         }
       });
     });
+    el.querySelectorAll('.fav-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = btn.getAttribute('data-fav-id');
+        const s = list.find(x => x.id === id);
+        if (s) toggleFavorite(s);
+        if (state.favoritesOnly) renderAll();
+        else {
+          const nowFav = isFavorite(id);
+          btn.textContent = nowFav ? '★' : '☆';
+          btn.classList.toggle('active', nowFav);
+        }
+      });
+    });
   }
 
   // ---------- filters ----------
@@ -605,11 +692,13 @@
     powerEl.innerHTML =
       `<button class="chip ${state.powerFilter==='all'?'active-neutral':''}" data-power="all">Todas</button>` +
       POWER_TIERS.map(t => `<button class="chip ${state.powerFilter===t.key?'active-'+t.key:''}" data-power="${t.key}">⚡ ${t.label}</button>`).join('') +
-      `<button class="chip ${state.freeOnly?'active-free':''}" data-free="1">Grátis</button>`;
+      `<button class="chip ${state.freeOnly?'active-free':''}" data-free="1">Grátis</button>` +
+      `<button class="chip ${state.favoritesOnly?'active-fav':''}" data-favs="1">★ Favoritos</button>`;
     powerEl.querySelectorAll('[data-power]').forEach(btn => {
       btn.addEventListener('click', () => { state.powerFilter = btn.getAttribute('data-power'); refreshFilterTrigger(); renderAll(); });
     });
     powerEl.querySelector('[data-free]').addEventListener('click', () => { state.freeOnly = !state.freeOnly; refreshFilterTrigger(); renderAll(); });
+    powerEl.querySelector('[data-favs]').addEventListener('click', () => { state.favoritesOnly = !state.favoritesOnly; refreshFilterTrigger(); renderAll(); });
 
     const connEl = document.getElementById('connectorFilters');
     connEl.innerHTML =
@@ -617,6 +706,19 @@
       CONNECTOR_TYPES.map(c => `<button class="chip ${state.connectorFilter===c.key?'active-neutral':''}" data-conn="${c.key}">${c.label}</button>`).join('');
     connEl.querySelectorAll('[data-conn]').forEach(btn => {
       btn.addEventListener('click', () => { state.connectorFilter = btn.getAttribute('data-conn'); refreshFilterTrigger(); renderAll(); });
+    });
+
+    const autoEl = document.getElementById('autonomyFilters');
+    autoEl.innerHTML =
+      `<button class="chip ${state.autonomyKm==='all'?'active-neutral':''}" data-auto="all">🔋 Todo o alcance</button>` +
+      AUTONOMY_TIERS.map(km => `<button class="chip ${state.autonomyKm===km?'active-neutral':''}" data-auto="${km}">≤${km} km</button>`).join('');
+    autoEl.querySelectorAll('[data-auto]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const v = btn.getAttribute('data-auto');
+        state.autonomyKm = v === 'all' ? 'all' : parseInt(v, 10);
+        refreshFilterTrigger();
+        renderAll();
+      });
     });
   }
   function refreshFilterTrigger(){
@@ -630,6 +732,8 @@
       if (c) parts.push(c.label);
     }
     if (state.freeOnly) parts.push('Grátis');
+    if (state.favoritesOnly) parts.push('★ Favoritos');
+    if (state.autonomyKm !== 'all') parts.push('≤'+state.autonomyKm+'km');
 
     const active = parts.length > 0;
     document.getElementById('filterTrigger').classList.toggle('active', active);
@@ -779,3 +883,13 @@
   setTimeout(() => map.invalidateSize(), 200);
 })();
 </script>
+
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    });
+  }
+</script>
+</body>
+</html>
