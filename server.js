@@ -135,6 +135,99 @@ app.get('/api/health', (req, res) => {
   res.json({ ok: true, cachedQueries: Object.keys(evCache).length });
 });
 
+// ---------------- Postos ao longo de uma rota (planeador de viagem) ----------------
+const tripCache = {};
+const TRIP_CACHE_TTL_MS = 60 * 60 * 1000; // 1h
+
+app.get('/api/rota-postos', async (req, res) => {
+  try {
+    const { fromLat, fromLon, toLat, toLon } = req.query;
+    if ([fromLat, fromLon, toLat, toLon].some((v) => v === undefined)) {
+      return res.status(400).json({ error: 'Parâmetros em falta: fromLat, fromLon, toLat, toLon' });
+    }
+    const corridorKm = 5;
+    const key = `${fromLat},${fromLon},${toLat},${toLon}`;
+    const now = Date.now();
+    if (tripCache[key] && now - tripCache[key].fetchedAt < TRIP_CACHE_TTL_MS) {
+      return res.json(tripCache[key].data);
+    }
+
+    // 1. rota real por estrada
+    const routeUrl = `https://router.project-osrm.org/route/v1/driving/${fromLon},${fromLat};${toLon},${toLat}?overview=full&geometries=geojson`;
+    const routeRes = await fetch(routeUrl, { headers: { 'User-Agent': 'CargaMaisApp/1.0' } });
+    if (!routeRes.ok) throw new Error(`OSRM devolveu ${routeRes.status} ${routeRes.statusText}`);
+    const routeRaw = await routeRes.json();
+    if (routeRaw.code !== 'Ok' || !routeRaw.routes || !routeRaw.routes[0]) {
+      return res.status(404).json({ error: 'Sem rota encontrada por estrada entre estes pontos.' });
+    }
+    const route = routeRaw.routes[0];
+    const coordinates = route.geometry.coordinates.map(([lon, lat]) => [lat, lon]);
+    const distanceKm = route.distance / 1000;
+    const durationMin = route.duration / 60;
+
+    // 2. caixa delimitadora da rota, com margem
+    let south = 90, north = -90, west = 180, east = -180;
+    coordinates.forEach(([lat, lon]) => {
+      south = Math.min(south, lat); north = Math.max(north, lat);
+      west = Math.min(west, lon); east = Math.max(east, lon);
+    });
+    const bufDeg = (corridorKm + 2) / 111;
+    south -= bufDeg; north += bufDeg; west -= bufDeg; east += bufDeg;
+
+    // 3. postos de carregamento dentro dessa caixa (Overpass)
+    const query = `[out:json][timeout:20];node["amenity"="charging_station"](${south},${west},${north},${east});out body;`;
+    let raw = null;
+    for (const base of OVERPASS_URLS) {
+      try {
+        const url = `${base}?data=${encodeURIComponent(query)}`;
+        const controller = new AbortController();
+        const t = setTimeout(() => controller.abort(), 12000);
+        const r = await fetch(url, { headers: { 'User-Agent': 'CargaMaisApp/1.0' }, signal: controller.signal });
+        clearTimeout(t);
+        if (r.ok) { raw = await r.json(); break; }
+      } catch (e) { /* tenta o próximo espelho */ }
+    }
+    if (!raw) throw new Error('Falha ao obter postos ao longo da rota (Overpass)');
+
+    const allStations = (raw.elements || []).map(parseOverpassStation);
+
+    // 4. amostra da rota (para não comparar contra milhares de pontos) e
+    // distância cumulativa, para sabermos o "progresso" de cada posto
+    const sampleStep = Math.max(1, Math.floor(coordinates.length / 300));
+    const routeSample = [];
+    for (let i = 0; i < coordinates.length; i += sampleStep) routeSample.push(coordinates[i]);
+    if (routeSample[routeSample.length - 1] !== coordinates[coordinates.length - 1]) {
+      routeSample.push(coordinates[coordinates.length - 1]);
+    }
+    const cum = [0];
+    for (let i = 1; i < routeSample.length; i++) {
+      cum.push(cum[i - 1] + haversineKm(routeSample[i - 1][0], routeSample[i - 1][1], routeSample[i][0], routeSample[i][1]));
+    }
+
+    // 5. só ficam os postos a menos de corridorKm da rota, com a sua posição
+    // aproximada ao longo da viagem (para os ordenar por ordem de passagem)
+    const stationsOnRoute = [];
+    for (const s of allStations) {
+      let minDist = Infinity, bestIdx = 0;
+      for (let i = 0; i < routeSample.length; i++) {
+        const d = haversineKm(s.lat, s.lon, routeSample[i][0], routeSample[i][1]);
+        if (d < minDist) { minDist = d; bestIdx = i; }
+      }
+      if (minDist <= corridorKm) {
+        stationsOnRoute.push({ ...s, distFromRoute: Math.round(minDist * 10) / 10, progressKm: Math.round(cum[bestIdx] * 10) / 10 });
+      }
+    }
+    stationsOnRoute.sort((a, b) => a.progressKm - b.progressKm);
+
+    const data = { distanceKm, durationMin, coordinates, corridorKm, stations: stationsOnRoute };
+    tripCache[key] = { data, fetchedAt: now };
+    res.json(data);
+  } catch (err) {
+    console.error(err);
+    res.status(502).json({ error: 'Falha ao planear a rota', detail: String(err.message || err) });
+  }
+});
+
 // ---------------- Pesquisa de localidades (qualquer sítio em Portugal) ----------------
 const geocodeCache = {};
 const GEOCODE_CACHE_TTL_MS = 60 * 60 * 1000; // 1h

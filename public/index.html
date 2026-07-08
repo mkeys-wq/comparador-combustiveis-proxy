@@ -58,6 +58,7 @@
   .loc-pill span{ flex:1; font-size:12.5px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .icon-pill{ width:38px; height:38px; border-radius:14px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; color:var(--text); font-size:15px; }
   .icon-pill.active{ color:var(--cyan); border-color:rgba(34,211,238,0.4); }
+  #routeBtn.active{ color:var(--violet) !important; border-color:rgba(139,92,246,0.4) !important; }
   #filterTrigger{ color:var(--text) !important; }
   #filterTrigger span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text); }
   #filterTrigger svg{ color:var(--text); }
@@ -79,6 +80,12 @@
   .autonomy-unit{ font-size:11px; color:var(--text-faint); }
   .autonomy-row button{ background:none; border:none; color:var(--text-faint); cursor:pointer; font-size:13px; padding:2px 4px; }
   .autonomy-hint{ font-size:9.5px; color:var(--text-faint); line-height:1.4; }
+  .route-origin-box{ display:flex; align-items:center; gap:8px; padding:10px 12px; background:rgba(255,255,255,0.04); border:1px solid var(--line); border-radius:12px; font-size:13px; margin-bottom:4px; }
+  .route-banner{ position:absolute; top:64px; left:14px; right:14px; z-index:450; display:none; align-items:center; gap:8px; padding:9px 12px; border-radius:14px; }
+  .route-banner.show{ display:flex; }
+  .route-banner .txt{ flex:1; font-size:11.5px; }
+  .route-banner .txt b{ color:var(--violet); }
+  .route-banner button{ background:rgba(255,255,255,0.08); border:none; color:var(--text); border-radius:8px; padding:5px 9px; font-size:11px; cursor:pointer; }
   .reach-tag{ font-size:8.5px; font-weight:700; padding:2px 6px; border-radius:6px; text-transform:uppercase; letter-spacing:0.3px; }
   .reach-tag.ok{ background:rgba(52,211,153,0.18); color:#34D399; }
   .reach-tag.no{ background:rgba(244,63,94,0.15); color:#F87171; }
@@ -187,10 +194,11 @@
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22D3EE" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
           <span id="locLabel">Arouca, Aveiro</span>
         </button>
-        <button class="loc-pill glass" id="filterTrigger" title="Filtros" style="flex:0 0 auto; max-width:140px;">
+        <button class="loc-pill glass" id="filterTrigger" title="Filtros" style="flex:0 0 auto; max-width:120px;">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
           <span id="filterTriggerLabel">Filtros</span>
         </button>
+        <button class="icon-pill glass" id="routeBtn" title="Planear rota">🛣️</button>
         <button class="icon-pill glass" id="infoBtn">ⓘ</button>
       </div>
 
@@ -222,6 +230,10 @@
       </div>
 
       <div class="map-banner glass" id="mapBanner"></div>
+      <div class="route-banner glass" id="routeBanner">
+        <span class="txt" id="routeBannerTxt"></span>
+        <button id="routeExitBtn">✕ Sair</button>
+      </div>
 
       <div class="zoom-control glass" id="zoomControl">
         <button class="zoom-btn" id="zoomInBtn">+</button>
@@ -251,7 +263,7 @@
         <div class="carousel" id="carousel"></div>
       </div>
 
-      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: autonomy-hours-v9</div>
+      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: trip-planner-v10</div>
     </div>
   </div>
 </div>
@@ -274,6 +286,29 @@
 
     <div class="eyebrow" id="townListLabel">Sugestões</div>
     <div id="townList"></div>
+  </div>
+</div>
+
+<div class="sheet-backdrop" id="routeSheetBackdrop">
+  <div class="sheet">
+    <div class="sheet-head">
+      <div class="sheet-title display">Planear viagem</div>
+      <button class="sheet-close" id="routeSheetClose">✕</button>
+    </div>
+
+    <div class="eyebrow">De</div>
+    <div class="route-origin-box" id="routeOriginBox"></div>
+
+    <div class="eyebrow">Para</div>
+    <div class="search-wrap">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5A6488" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+      <input class="search-input" id="routeDestSearch" placeholder="Procurar destino…" />
+    </div>
+    <div class="geo-status" id="routeDestStatus"></div>
+    <div id="routeDestList"></div>
+
+    <button class="btn-primary" id="routeCalcBtn" style="margin-top:12px; opacity:0.4; pointer-events:none;" disabled>🛣️ Calcular rota</button>
+    <div class="geo-status" id="routeCalcStatus"></div>
   </div>
 </div>
 
@@ -402,6 +437,7 @@
     center: TOWNS[0], selectedId: null,
     powerFilter: 'all', connectorFilter: 'all', freeOnly: false, favoritesOnly: false,
     openNowOnly: false, autonomyKm: null,
+    routeMode: false, routeDestination: null, routeData: null,
   };
   let renderToken = 0;
 
@@ -493,6 +529,7 @@
   let markersLayer = L.layerGroup().addTo(map);
   const markersById = {};
   let hudLine = null;
+  let tripLine = null;
 
   // ---------- data ----------
   let rawStations = [];
@@ -552,6 +589,12 @@
   }
 
   async function computeList(){
+    if (state.routeMode && state.routeData){
+      const routeStations = state.routeData.stations.map(s => ({ ...s, dist: s.progressKm }));
+      let list = applyFilters(routeStations);
+      list.sort((a,b) => a.dist - b.dist); // ordem de passagem na viagem
+      return list;
+    }
     if (state.favoritesOnly){
       const favs = getFavorites().map(f => ({ ...f, dist: distanceKm(state.center.lat, state.center.lon, f.lat, f.lon) }));
       let list = applyFilters(favs);
@@ -677,8 +720,15 @@
 
     // Nota: não chamamos map.setView aqui de propósito — selecionar um posto ou
     // atualizar a lista não deve mexer no zoom/posição que o utilizador escolheu.
-    radiusCircle.setLatLng([state.center.lat, state.center.lon]);
-    radiusCircle.setRadius(SEARCH_RADIUS_KM*1000);
+    if (state.routeMode && state.routeData){
+      radiusCircle.setRadius(0);
+      if (tripLine){ map.removeLayer(tripLine); }
+      tripLine = L.polyline(state.routeData.coordinates, { color: C.violet, weight: 4, opacity: 0.75 }).addTo(map);
+    } else {
+      if (tripLine){ map.removeLayer(tripLine); tripLine = null; }
+      radiusCircle.setLatLng([state.center.lat, state.center.lon]);
+      radiusCircle.setRadius(SEARCH_RADIUS_KM*1000);
+    }
     centerMarker.setLatLng([state.center.lat, state.center.lon]);
 
     list.forEach(s => {
@@ -755,7 +805,9 @@
   function renderCarousel(list){
     const el = document.getElementById('carousel');
     if (list.length === 0){
-      el.innerHTML = state.favoritesOnly
+      el.innerHTML = state.routeMode
+        ? `<div class="empty-card glass">Sem postos encontrados perto desta rota.</div>`
+        : state.favoritesOnly
         ? `<div class="empty-card glass">Ainda não tens postos favoritos. Toca na estrela ☆ num posto para o guardares.</div>`
         : `<div class="empty-card glass">Sem postos com estes filtros. Aumenta o raio ou ajusta os filtros.</div>`;
       return;
@@ -777,7 +829,7 @@
           <div class="power mono" style="color:${col}">${s.power||'—'}</div>
         </div>
         <div class="sub">${s.operator}</div>
-        <div class="dist">${s.dist.toFixed(1)} km${s.free ? ' · grátis' : ''}</div>
+        <div class="dist">${state.routeMode ? `${s.dist.toFixed(1)} km da partida · a ${s.distFromRoute}km da rota` : s.dist.toFixed(1)+' km'}${s.free ? ' · grátis' : ''}</div>
         <div class="conn-row">${reachTag}${statusTag}</div>
       </div>`;
     }).join('');
@@ -1072,6 +1124,125 @@
       document.getElementById('searchStatus').textContent = 'Falha na pesquisa. Tenta novamente.';
     }
   }
+
+  // ---------- planeador de rota ----------
+  const routeSheetBackdrop = document.getElementById('routeSheetBackdrop');
+
+  function renderRouteOrigin(){
+    document.getElementById('routeOriginBox').innerHTML = `
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" stroke-width="2" style="flex-shrink:0;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+      <span>${state.center.name}</span>`;
+  }
+
+  document.getElementById('routeBtn').addEventListener('click', () => {
+    if (state.routeMode){
+      exitRouteMode();
+      return;
+    }
+    renderRouteOrigin();
+    routeSheetBackdrop.classList.add('open');
+  });
+  document.getElementById('routeSheetClose').addEventListener('click', () => routeSheetBackdrop.classList.remove('open'));
+  routeSheetBackdrop.addEventListener('click', (e) => { if (e.target === routeSheetBackdrop) routeSheetBackdrop.classList.remove('open'); });
+
+  let routeDestSearchToken = 0;
+  let routeDestDebounce = null;
+  document.getElementById('routeDestSearch').addEventListener('input', () => {
+    const q = document.getElementById('routeDestSearch').value.trim();
+    clearTimeout(routeDestDebounce);
+    document.getElementById('routeDestList').innerHTML = '';
+    if (q.length < 2){ document.getElementById('routeDestStatus').textContent = ''; return; }
+    document.getElementById('routeDestStatus').textContent = 'A procurar…';
+    routeDestDebounce = setTimeout(async () => {
+      const myToken = ++routeDestSearchToken;
+      try {
+        const res = await fetch(`/api/geocode?q=${encodeURIComponent(q)}`);
+        if (myToken !== routeDestSearchToken) return;
+        const json = await res.json();
+        const results = Array.isArray(json.results) ? json.results : [];
+        document.getElementById('routeDestStatus').textContent = '';
+        if (results.length === 0){
+          document.getElementById('routeDestList').innerHTML = `<div style="font-size:12px;color:var(--text-muted);padding:8px 4px;">Nenhum resultado.</div>`;
+          return;
+        }
+        document.getElementById('routeDestList').innerHTML = results.map(r => `
+          <button class="town-btn" data-name="${r.name.replace(/"/g,'&quot;')}" data-lat="${r.lat}" data-lon="${r.lon}">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8892B8" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.name}</span>
+          </button>`).join('');
+        document.querySelectorAll('#routeDestList .town-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            state.routeDestination = {
+              name: btn.getAttribute('data-name'),
+              lat: parseFloat(btn.getAttribute('data-lat')),
+              lon: parseFloat(btn.getAttribute('data-lon')),
+            };
+            document.getElementById('routeDestSearch').value = state.routeDestination.name;
+            document.getElementById('routeDestList').innerHTML = '';
+            const btnCalc = document.getElementById('routeCalcBtn');
+            btnCalc.disabled = false;
+            btnCalc.style.opacity = '1';
+            btnCalc.style.pointerEvents = 'auto';
+          });
+        });
+      } catch (e) {
+        if (myToken !== routeDestSearchToken) return;
+        document.getElementById('routeDestStatus').textContent = 'Falha na pesquisa. Tenta novamente.';
+      }
+    }, 400);
+  });
+
+  document.getElementById('routeCalcBtn').addEventListener('click', async () => {
+    if (!state.routeDestination) return;
+    const statusEl = document.getElementById('routeCalcStatus');
+    statusEl.textContent = 'A calcular rota e a procurar postos pelo caminho…';
+    try {
+      const url = `/api/rota-postos?fromLat=${state.center.lat}&fromLon=${state.center.lon}&toLat=${state.routeDestination.lat}&toLon=${state.routeDestination.lon}`;
+      const res = await fetch(url);
+      if (!res.ok){
+        const err = await res.json().catch(() => ({}));
+        statusEl.textContent = err.error || 'Não foi possível calcular a rota.';
+        return;
+      }
+      const data = await res.json();
+      state.routeData = data;
+      state.routeMode = true;
+      statusEl.textContent = '';
+      routeSheetBackdrop.classList.remove('open');
+      document.getElementById('routeBtn').classList.add('active');
+      document.getElementById('routeBtn').textContent = '✕';
+
+      const banner = document.getElementById('routeBanner');
+      document.getElementById('routeBannerTxt').innerHTML = `🛣️ <b>${state.center.name}</b> → <b>${state.routeDestination.name.split(',')[0]}</b> · ${data.distanceKm.toFixed(0)}km · ${Math.round(data.durationMin/60*10)/10}h · ${data.stations.length} postos pelo caminho`;
+      banner.classList.add('show');
+
+      if (!usingFallbackMap){
+        const bounds = L.latLngBounds(data.coordinates);
+        map.fitBounds(bounds, { padding:[30,30] });
+      }
+      selectStation(null);
+    } catch (e) {
+      statusEl.textContent = 'Falha ao calcular a rota. Tenta novamente.';
+    }
+  });
+
+  function exitRouteMode(){
+    state.routeMode = false;
+    state.routeData = null;
+    state.routeDestination = null;
+    document.getElementById('routeDestSearch').value = '';
+    document.getElementById('routeBtn').classList.remove('active');
+    document.getElementById('routeBtn').textContent = '🛣️';
+    document.getElementById('routeBanner').classList.remove('show');
+    const btnCalc = document.getElementById('routeCalcBtn');
+    btnCalc.disabled = true;
+    btnCalc.style.opacity = '0.4';
+    btnCalc.style.pointerEvents = 'none';
+    selectStation(null);
+    recenterMap();
+    renderAll();
+  }
+  document.getElementById('routeExitBtn').addEventListener('click', exitRouteMode);
 
   // ---------- boot ----------
   renderFilterChips();
