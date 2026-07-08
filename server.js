@@ -269,6 +269,11 @@ async function estimateElevationEffect(coordinates, distanceKm) {
   }
 }
 
+app.get('/', (req, res) => {
+  res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.listen(PORT, () => {
