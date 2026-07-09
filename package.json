@@ -1,7 +1,7 @@
 {
-  "name": "carga-mais-ev-charging",
+  "name": "comparador-combustiveis-proxy",
   "version": "1.0.0",
-  "description": "CARGA+ — encontra postos de carregamento elétrico reais em Portugal (OpenStreetMap)",
+  "description": "Servidor proxy que liga a app Comparador Combustível+ aos preços reais da DGEG/ERSE",
   "type": "module",
   "main": "server.js",
   "engines": {
