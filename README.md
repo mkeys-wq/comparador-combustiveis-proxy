@@ -1,7 +1,8 @@
-# Comparador Combustível+ — preços reais de combustível
+# Combustível+ — preços reais de combustível
 
 App para comparar preços de combustível em Portugal, com dados reais e
-atualizados diariamente da DGEG/ERSE.
+atualizados diariamente da DGEG/ERSE. Mesma base visual/técnica do CARGA+
+(mapa a ecrã inteiro, satélite, rota real, favoritos, instalável).
 
 ## Correr localmente
 ```bash

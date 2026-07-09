@@ -149,6 +149,81 @@ app.get('/api/health', (req, res) => {
   res.json({ ok: true, cachedFuels: Object.keys(cache) });
 });
 
+// ---------------- Pesquisa de localidades (qualquer sítio em Portugal) ----------------
+const geocodeCache = {};
+const GEOCODE_CACHE_TTL_MS = 60 * 60 * 1000; // 1h
+
+app.get('/api/geocode', async (req, res) => {
+  try {
+    const q = (req.query.q || '').trim();
+    if (q.length < 2) return res.json({ results: [] });
+
+    const key = q.toLowerCase();
+    const now = Date.now();
+    if (geocodeCache[key] && now - geocodeCache[key].fetchedAt < GEOCODE_CACHE_TTL_MS) {
+      return res.json({ results: geocodeCache[key].data });
+    }
+
+    const url = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=pt&addressdetails=1&limit=8&q=${encodeURIComponent(q)}`;
+    const r = await fetch(url, { headers: { 'User-Agent': 'CombustivelMaisApp/1.0 (busca de localidades)' } });
+    if (!r.ok) throw new Error(`Nominatim devolveu ${r.status} ${r.statusText}`);
+    const raw = await r.json();
+
+    const results = raw.map((item) => ({
+      name: item.display_name,
+      lat: parseFloat(item.lat),
+      lon: parseFloat(item.lon),
+    })).filter((r) => Number.isFinite(r.lat) && Number.isFinite(r.lon));
+
+    geocodeCache[key] = { data: results, fetchedAt: now };
+    res.json({ results });
+  } catch (err) {
+    console.error(err);
+    res.status(502).json({ error: 'Falha na pesquisa de localidades', detail: String(err.message || err) });
+  }
+});
+
+// ---------------- Distância e rota reais (por estrada, via OSRM) ----------------
+const routeCache = {};
+const ROUTE_CACHE_TTL_MS = 60 * 60 * 1000; // 1h
+
+app.get('/api/rota', async (req, res) => {
+  try {
+    const { fromLat, fromLon, toLat, toLon } = req.query;
+    if ([fromLat, fromLon, toLat, toLon].some((v) => v === undefined)) {
+      return res.status(400).json({ error: 'Parâmetros em falta: fromLat, fromLon, toLat, toLon' });
+    }
+    const key = `${fromLat},${fromLon},${toLat},${toLon}`;
+    const now = Date.now();
+    if (routeCache[key] && now - routeCache[key].fetchedAt < ROUTE_CACHE_TTL_MS) {
+      return res.json(routeCache[key].data);
+    }
+
+    const url = `https://router.project-osrm.org/route/v1/driving/${fromLon},${fromLat};${toLon},${toLat}?overview=full&geometries=geojson`;
+    const r = await fetch(url, { headers: { 'User-Agent': 'CombustivelMaisApp/1.0' } });
+    if (!r.ok) throw new Error(`OSRM devolveu ${r.status} ${r.statusText}`);
+    const raw = await r.json();
+
+    if (raw.code !== 'Ok' || !raw.routes || !raw.routes[0]) {
+      return res.status(404).json({ error: 'Sem rota encontrada por estrada entre estes pontos.' });
+    }
+
+    const route = raw.routes[0];
+    const coordinates = (route.geometry.coordinates || []).map(([lon, lat]) => [lat, lon]);
+
+    const data = {
+      distanceKm: route.distance / 1000,
+      durationMin: route.duration / 60,
+      coordinates,
+    };
+    routeCache[key] = { data, fetchedAt: now };
+    res.json(data);
+  } catch (err) {
+    console.error(err);
+    res.status(502).json({ error: 'Falha ao calcular a rota', detail: String(err.message || err) });
+  }
+});
+
 // A página principal nunca deve ficar presa em cache do browser — garante
 // que quem abre a app recebe sempre a versão mais recente publicada.
 app.get('/', (req, res) => {
