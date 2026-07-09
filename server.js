@@ -149,6 +149,20 @@ app.get('/api/health', (req, res) => {
   res.json({ ok: true, cachedFuels: Object.keys(cache) });
 });
 
+// Testa se existe um endpoint alternativo que devolva TODOS os postos de um
+// tipo de combustível (não só os 50 mais baratos do país, como PesquisarPostos).
+app.get('/api/debug/listar-postos', async (req, res) => {
+  try {
+    const id = req.query.id || FUEL_IDS.gasoleo;
+    const url = `${DGEG_BASE}/ListarDadosPostos?idsTiposComb=${id}&qtdPorPagina=9999&pagina=1`;
+    const raw = await fetchJson(url);
+    const list = Array.isArray(raw) ? raw : raw.resultado || raw.Postos || raw.postos || raw.Resultado || [];
+    res.json({ totalRecebido: list.length, amostra: list.slice(0, 3), raw: Array.isArray(raw) ? undefined : Object.keys(raw) });
+  } catch (err) {
+    res.status(502).json({ error: String(err.message || err) });
+  }
+});
+
 // ---------------- Pesquisa de localidades (qualquer sítio em Portugal) ----------------
 const geocodeCache = {};
 const GEOCODE_CACHE_TTL_MS = 60 * 60 * 1000; // 1h
