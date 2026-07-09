@@ -279,7 +279,7 @@
         <div class="carousel" id="carousel"></div>
       </div>
 
-      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: lightmap-v14</div>
+      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: eox-tilefix-v15</div>
     </div>
   </div>
 </div>
@@ -492,19 +492,22 @@
 
   const lightLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap contributors', maxZoom: 19, subdomains: 'abc'
-  }).addTo(map);
+  });
 
   const darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
     attribution: '&copy; OpenStreetMap &copy; CARTO', maxZoom: 19, subdomains: 'abcd'
   });
 
-  const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-    attribution: 'Tiles &copy; Esri', maxZoom: 19
-  });
+  const satelliteLayer = L.tileLayer('https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2020_3857/default/g/{z}/{y}/{x}.jpg', {
+    attribution: 'Sentinel-2 cloudless by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2020)', maxZoom: 14
+  }).addTo(map);
 
-  L.control.layers({ 'Mapa': lightLayer, 'Escuro': darkLayer, 'Satélite': satelliteLayer }, null, { position: 'topright' }).addTo(map);
+  L.control.layers({ 'Satélite': satelliteLayer, 'Mapa': lightLayer, 'Escuro': darkLayer }, null, { position: 'topright' }).addTo(map);
 
-  map.on('tileload', () => { tileLoadedOnce = true; hideMapBanner(); hideMapLoading(); });
+  function markTilesLoaded(){ tileLoadedOnce = true; hideMapBanner(); hideMapLoading(); }
+  lightLayer.on('load', markTilesLoaded);
+  darkLayer.on('load', markTilesLoaded);
+  satelliteLayer.on('load', markTilesLoaded);
   function hideMapBanner(){ document.getElementById('mapBanner').classList.remove('show'); }
   function hideMapLoading(){
     const el = document.getElementById('mapLoading');
