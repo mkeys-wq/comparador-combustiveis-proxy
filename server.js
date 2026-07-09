@@ -103,7 +103,10 @@ async function loadFuel(fuelKey) {
   const id = FUEL_IDS[fuelKey];
   if (!id) throw new Error(`Tipo de combustível desconhecido: ${fuelKey}`);
 
-  const url = `${DGEG_BASE}/PesquisarPostos?idsTiposComb=${id}`;
+  // qtdPorPagina alto: sem isto, a DGEG só devolve os 50 mais baratos do país
+  // (o suficiente para uma tabela de "mais baratos", mas não para uma pesquisa
+  // por proximidade — precisamos de TODOS os postos para depois filtrar por raio).
+  const url = `${DGEG_BASE}/PesquisarPostos?idsTiposComb=${id}&qtdPorPagina=5000&pagina=1`;
   const raw = await fetchJson(url);
   const list = Array.isArray(raw) ? raw : raw.resultado || raw.Postos || raw.postos || raw.Resultado || [];
 
@@ -147,35 +150,6 @@ app.get('/api/postos', async (req, res) => {
 
 app.get('/api/health', (req, res) => {
   res.json({ ok: true, cachedFuels: Object.keys(cache) });
-});
-
-// Testa se o endpoint com preço/coordenadas aceita um parâmetro de paginação
-// que permita ir além dos 50 resultados habituais.
-app.get('/api/debug/pesquisar-mais', async (req, res) => {
-  try {
-    const id = req.query.id || FUEL_IDS.gasoleo;
-    const qtd = req.query.qtd || '500';
-    const url = `${DGEG_BASE}/PesquisarPostos?idsTiposComb=${id}&qtdPorPagina=${qtd}&pagina=1`;
-    const raw = await fetchJson(url);
-    const list = Array.isArray(raw) ? raw : raw.resultado || raw.Postos || raw.postos || raw.Resultado || [];
-    res.json({ totalRecebido: list.length, primeiro: list[0], ultimo: list[list.length-1] });
-  } catch (err) {
-    res.status(502).json({ error: String(err.message || err) });
-  }
-});
-
-// Testa se existe um endpoint alternativo que devolva TODOS os postos de um
-// tipo de combustível (não só os 50 mais baratos do país, como PesquisarPostos).
-app.get('/api/debug/listar-postos', async (req, res) => {
-  try {
-    const id = req.query.id || FUEL_IDS.gasoleo;
-    const url = `${DGEG_BASE}/ListarDadosPostos?idsTiposComb=${id}&qtdPorPagina=9999&pagina=1`;
-    const raw = await fetchJson(url);
-    const list = Array.isArray(raw) ? raw : raw.resultado || raw.Postos || raw.postos || raw.Resultado || [];
-    res.json({ totalRecebido: list.length, amostra: list.slice(0, 3), raw: Array.isArray(raw) ? undefined : Object.keys(raw) });
-  } catch (err) {
-    res.status(502).json({ error: String(err.message || err) });
-  }
 });
 
 // ---------------- Pesquisa de localidades (qualquer sítio em Portugal) ----------------
