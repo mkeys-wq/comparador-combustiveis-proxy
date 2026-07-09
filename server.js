@@ -213,11 +213,17 @@ app.get('/api/rota', async (req, res) => {
 
     const route = raw.routes[0];
     const coordinates = (route.geometry.coordinates || []).map(([lon, lat]) => [lat, lon]);
+    const distanceKm = route.distance / 1000;
+
+    const elevation = await estimateFuelEffect(coordinates, distanceKm);
 
     const data = {
-      distanceKm: route.distance / 1000,
+      distanceKm,
       durationMin: route.duration / 60,
       coordinates,
+      elevationGainM: elevation ? elevation.gainM : null,
+      elevationLossM: elevation ? elevation.lossM : null,
+      litersOneWay: elevation ? elevation.liters : null,
     };
     routeCache[key] = { data, fetchedAt: now };
     res.json(data);
@@ -226,6 +232,58 @@ app.get('/api/rota', async (req, res) => {
     res.status(502).json({ error: 'Falha ao calcular a rota', detail: String(err.message || err) });
   }
 });
+
+// ---------------- Estimativa de consumo com base na altitude real do percurso ----------------
+// Modelo físico simplificado (carro médio a combustão, não é o consumo exato
+// do teu carro): subidas custam combustível extra; descidas poupam algum
+// (motor a combustão não "recupera" energia como um elétrico, mas gasta
+// muito menos a descer — travagem por motor/embalar).
+const ASSUMED_MASS_KG = 1400;
+const ASSUMED_L_PER_100KM = 6.5;
+const USABLE_WH_PER_LITER = 3600; // energia mecânica útil por litro, após rendimento do motor
+const DOWNHILL_SAVING_FACTOR = 0.4; // fração do custo de subida equivalente, poupada a descer
+const G = 9.81;
+
+async function estimateFuelEffect(coordinates, distanceKm) {
+  try {
+    if (!coordinates || coordinates.length < 2) return null;
+    const sampleCount = Math.min(20, coordinates.length);
+    const step = Math.max(1, Math.floor(coordinates.length / sampleCount));
+    const sampled = [];
+    for (let i = 0; i < coordinates.length; i += step) sampled.push(coordinates[i]);
+    if (sampled[sampled.length - 1] !== coordinates[coordinates.length - 1]) {
+      sampled.push(coordinates[coordinates.length - 1]);
+    }
+
+    const locations = sampled.map(([lat, lon]) => `${lat},${lon}`).join('|');
+    const url = `https://api.opentopodata.org/v1/eudem25m?locations=${locations}`;
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), 8000);
+    const r = await fetch(url, { signal: controller.signal });
+    clearTimeout(t);
+    if (!r.ok) return null;
+    const raw = await r.json();
+    if (raw.status !== 'OK' || !Array.isArray(raw.results)) return null;
+
+    const elevations = raw.results.map((p) => p.elevation).filter((e) => typeof e === 'number');
+    if (elevations.length < 2) return null;
+
+    let gainM = 0, lossM = 0;
+    for (let i = 1; i < elevations.length; i++) {
+      const delta = elevations[i] - elevations[i - 1];
+      if (delta > 0) gainM += delta; else lossM += -delta;
+    }
+
+    const baseLiters = distanceKm * ASSUMED_L_PER_100KM / 100;
+    const extraLitersUphill = (ASSUMED_MASS_KG * G * gainM / 3600) / USABLE_WH_PER_LITER;
+    const savedLitersDownhill = DOWNHILL_SAVING_FACTOR * (ASSUMED_MASS_KG * G * lossM / 3600) / USABLE_WH_PER_LITER;
+    const liters = Math.max(baseLiters * 0.7, baseLiters + extraLitersUphill - savedLitersDownhill);
+
+    return { gainM: Math.round(gainM), lossM: Math.round(lossM), liters: Math.round(liters * 1000) / 1000 };
+  } catch (e) {
+    return null;
+  }
+}
 
 // A página principal nunca deve ficar presa em cache do browser — garante
 // que quem abre a app recebe sempre a versão mais recente publicada.

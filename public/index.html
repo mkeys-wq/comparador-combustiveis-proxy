@@ -161,6 +161,7 @@
   .ev-card .dist{ font-size:10px; color:var(--text-faint); margin-top:2px; }
   .ev-card .conn-row{ display:flex; gap:4px; margin-top:5px; flex-wrap:wrap; }
   .ev-card .fav-btn{ position:absolute; top:6px; right:6px; }
+  .rank-badge{ position:absolute; top:4px; left:6px; font-size:13px; }
   .empty-card{ padding:16px 14px; text-align:center; color:var(--text-muted); font-size:12px; border-radius:16px; margin:0 14px; flex:1; }
   .skeleton-card{ flex:0 0 auto; width:150px; border-radius:16px; padding:10px 11px; }
   .skeleton-bar{ border-radius:6px; background:linear-gradient(90deg, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.05) 75%); background-size:200% 100%; animation:shimmer 1.4s ease-in-out infinite; }
@@ -168,6 +169,8 @@
   
 
   .pin-dot{ border-radius:50%; border:2px solid var(--bg); display:flex; align-items:center; justify-content:center; font-size:9px; animation:pinPop .25s cubic-bezier(.34,1.56,.64,1) backwards; }
+  .price-pin{ height:100%; border-radius:999px; border:1.5px solid rgba(5,7,12,0.8); display:flex; align-items:center; justify-content:center; font-family:'JetBrains Mono',monospace; font-size:10.5px; font-weight:700; color:#05070C; padding:0 6px; white-space:nowrap; box-shadow:0 2px 6px rgba(0,0,0,0.4); animation:pinPop .25s cubic-bezier(.34,1.56,.64,1) backwards; cursor:pointer; }
+  .price-pin.selected{ font-size:12px; box-shadow:0 0 0 2px #05070C, 0 0 12px 2px rgba(255,255,255,0.3); }
   @keyframes pinPop{ from{ transform:scale(0); opacity:0; } to{ transform:scale(1); opacity:1; } }
   .pin-dot.selected{ box-shadow:0 0 0 2px var(--bg), 0 0 0 4px currentColor, 0 0 14px 2px currentColor; }
   .center-pin{ width:20px; height:20px; border-radius:50%; background:radial-gradient(circle,var(--cyan),var(--violet)); border:3px solid #fff; box-shadow:0 0 0 8px rgba(34,211,238,0.2); cursor:grab; }
@@ -221,6 +224,7 @@
       <div class="info-box glass" id="infoBox">
         <div class="info-row"><b>⛽ Dados</b> — reais, oficiais, atualizados diariamente pela DGEG/ERSE.</div>
         <div class="info-row"><b>🗺️ Rota</b> — distância e tempo reais por estrada até ao posto selecionado.</div>
+        <div class="info-row"><b>✅ Compensa?</b> — compara o que poupas (depósito de 45L) com o combustível gasto a lá chegar (ida e volta, com a altitude real do percurso), face ao teu posto mais próximo. Assume um carro médio — não é o consumo exato do teu.</div>
         <div class="info-row"><b>★ Favoritos</b> — guardados neste telemóvel.</div>
       </div>
 
@@ -244,6 +248,7 @@
           <div class="name" id="hudName"></div>
           <div class="sub" id="hudSub"></div>
           <div class="tags" id="hudTags"></div>
+          <div class="consumo" id="hudConsumo"></div>
         </div>
         <div class="dist-block">
           <div class="dist-val mono" id="hudDist">—</div>
@@ -257,7 +262,7 @@
         <div class="carousel" id="carousel"></div>
       </div>
 
-      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v1</div>
+      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v2-worth</div>
     </div>
   </div>
 </div>
@@ -313,6 +318,7 @@
   ];
 
   const SEARCH_RADIUS_KM = 20; // raio fixo de pesquisa (não ajustável pelo utilizador)
+  const ASSUMED_TANK_L = 45; // depósito médio assumido, para o cálculo de "vale a pena"
 
   const toRad = d => d * Math.PI / 180;
   function distanceKm(lat1, lon1, lat2, lon2){
@@ -543,6 +549,7 @@
       (s.updatedAt ? `<span class="tag">atualizado ${s.updatedAt}</span>` : '');
     document.getElementById('hudDist').textContent = '···';
     document.getElementById('hudDistUnit').textContent = 'a calcular';
+    document.getElementById('hudConsumo').textContent = '';
     hud.classList.add('show');
 
     const favBtn = document.getElementById('hudFav');
@@ -581,6 +588,32 @@
       document.getElementById('hudDist').textContent = data.distanceKm.toFixed(1);
       document.getElementById('hudDistUnit').textContent = Math.round(data.durationMin) + ' min de carro';
 
+      const consumoEl = document.getElementById('hudConsumo');
+      if (data.litersOneWay != null){
+        const nearest = rawStations
+          .filter(x => x.id !== s.id)
+          .sort((a,b) => a.dist - b.dist)[0];
+
+        if (nearest && nearest.price > s.price){
+          const roundTripL = data.litersOneWay * 2;
+          const custoViagem = roundTripL * s.price;
+          const poupanca = (nearest.price - s.price) * ASSUMED_TANK_L;
+          const net = poupanca - custoViagem;
+          const desc = data.elevationLossM > data.elevationGainM ? '↓' : data.elevationGainM > data.elevationLossM ? '↑' : '≈';
+          if (net > 0){
+            consumoEl.innerHTML = `⛽ <b style="color:#34D399">✅ Compensa</b> — poupas ≈<b>${net.toFixed(2)}€</b> num depósito de ${ASSUMED_TANK_L}L (ida e volta ${desc} ${data.elevationGainM}↑/${data.elevationLossM}↓m custa ≈${custoViagem.toFixed(2)}€ em combustível)`;
+          } else {
+            consumoEl.innerHTML = `⛽ <b style="color:#F87171">⚠️ Não compensa</b> — perdes ≈<b>${Math.abs(net).toFixed(2)}€</b> num depósito de ${ASSUMED_TANK_L}L (a viagem ${desc} custa ≈${custoViagem.toFixed(2)}€, mais do que poupas)`;
+          }
+        } else if (nearest) {
+          consumoEl.innerHTML = `⛽ Este é o posto mais próximo que tens — sem desvio para comparar.`;
+        } else {
+          consumoEl.textContent = '';
+        }
+      } else {
+        consumoEl.textContent = '';
+      }
+
       if (hudLine){ map.removeLayer(hudLine); }
       hudLine = L.polyline(data.coordinates, {
         color: C.cyan, weight: 3, opacity: 0.85, className: 'hud-line'
@@ -616,10 +649,12 @@
     list.forEach(s => {
       const col = colorForPrice(s.t);
       const selected = state.selectedId === s.id;
-      const size = selected ? 22 : 14;
+      const priceLabel = s.price.toFixed(3);
+      const w = 15 + priceLabel.length * 6.2 + (selected ? 6 : 0);
+      const h = selected ? 22 : 18;
       const icon = L.divIcon({
-        className:'', iconSize:[size,size], iconAnchor:[size/2,size/2],
-        html:`<div class="pin-dot ${selected?'selected':''}" style="width:${size}px;height:${size}px;background:${col};color:${col};"></div>`
+        className:'', iconSize:[w,h], iconAnchor:[w/2,h/2],
+        html:`<div class="price-pin ${selected?'selected':''}" style="background:${col};">${priceLabel}</div>`
       });
       const marker = L.marker([s.lat, s.lon], { icon }).addTo(markersLayer);
       const priceTxt = s.price.toFixed(3) + ' €/l';
@@ -662,7 +697,7 @@
       const selected = state.selectedId === s.id;
       svg += `<g transform="translate(${x},${y})" data-id="${s.id}" class="fb-pin" style="cursor:pointer">
         <circle r="${selected?9:6}" fill="${col}" stroke="#05070C" stroke-width="2"/>
-        ${selected ? `<text y="-13" text-anchor="middle" fill="#E8ECFB" font-size="9" font-weight="700" font-family="JetBrains Mono, monospace">${s.price.toFixed(3)}€</text>` : ''}
+        <text y="-11" text-anchor="middle" fill="${selected?'#E8ECFB':'#8FA0AC'}" font-size="${selected?9:7.5}" font-weight="700" font-family="JetBrains Mono, monospace">${s.price.toFixed(3)}</text>
       </g>`;
     });
 
@@ -694,8 +729,10 @@
       const selected = state.selectedId === s.id;
       const fav = isFavorite(s.id);
       const delay = Math.min(idx, 8) * 0.035;
+      const rankBadge = idx === 0 ? '🏆' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : '';
       return `<div class="ev-card glass ${selected?'selected':''}" data-id="${s.id}" style="animation-delay:${delay}s;">
         <button class="fav-btn ${fav?'active':''}" data-fav-id="${s.id}">${fav?'★':'☆'}</button>
+        ${rankBadge ? `<div class="rank-badge">${rankBadge}</div>` : ''}
         <div class="top-row">
           <div class="name">${s.name}</div>
           <div class="power mono" style="color:${col}">${s.price.toFixed(3)}</div>
