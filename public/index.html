@@ -263,7 +263,7 @@
         <div class="carousel" id="carousel"></div>
       </div>
 
-      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v3-declutter</div>
+      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v4-msgfix</div>
     </div>
   </div>
 </div>
@@ -607,7 +607,7 @@
             consumoEl.innerHTML = `⛽ <b style="color:#F87171">⚠️ Não compensa</b> — perdes ≈<b>${Math.abs(net).toFixed(2)}€</b> num depósito de ${ASSUMED_TANK_L}L (a viagem ${desc} custa ≈${custoViagem.toFixed(2)}€, mais do que poupas)`;
           }
         } else if (nearest) {
-          consumoEl.innerHTML = `⛽ Este é o posto mais próximo que tens — sem desvio para comparar.`;
+          consumoEl.innerHTML = `⛽ Tens uma opção igual ou mais barata mais perto — <b>${nearest.name}</b> a ${nearest.dist.toFixed(1)}km por ${nearest.price.toFixed(3)}€. Não vale a pena vir até aqui só pelo preço.`;
         } else {
           consumoEl.textContent = '';
         }
