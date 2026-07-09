@@ -171,6 +171,7 @@
   .pin-dot{ border-radius:50%; border:2px solid var(--bg); display:flex; align-items:center; justify-content:center; font-size:9px; animation:pinPop .25s cubic-bezier(.34,1.56,.64,1) backwards; }
   .price-pin{ height:100%; border-radius:999px; border:1.5px solid rgba(5,7,12,0.8); display:flex; align-items:center; justify-content:center; font-family:'JetBrains Mono',monospace; font-size:10.5px; font-weight:700; color:#05070C; padding:0 6px; white-space:nowrap; box-shadow:0 2px 6px rgba(0,0,0,0.4); animation:pinPop .25s cubic-bezier(.34,1.56,.64,1) backwards; cursor:pointer; }
   .price-pin.selected{ font-size:12px; box-shadow:0 0 0 2px #05070C, 0 0 12px 2px rgba(255,255,255,0.3); }
+  .price-dot{ width:100%; height:100%; border-radius:50%; border:1.5px solid rgba(5,7,12,0.8); box-shadow:0 1px 3px rgba(0,0,0,0.4); cursor:pointer; animation:pinPop .2s ease backwards; }
   @keyframes pinPop{ from{ transform:scale(0); opacity:0; } to{ transform:scale(1); opacity:1; } }
   .pin-dot.selected{ box-shadow:0 0 0 2px var(--bg), 0 0 0 4px currentColor, 0 0 14px 2px currentColor; }
   .center-pin{ width:20px; height:20px; border-radius:50%; background:radial-gradient(circle,var(--cyan),var(--violet)); border:3px solid #fff; box-shadow:0 0 0 8px rgba(34,211,238,0.2); cursor:grab; }
@@ -262,7 +263,7 @@
         <div class="carousel" id="carousel"></div>
       </div>
 
-      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v2-worth</div>
+      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v3-declutter</div>
     </div>
   </div>
 </div>
@@ -646,16 +647,28 @@
     radiusCircle.setRadius(SEARCH_RADIUS_KM*1000);
     centerMarker.setLatLng([state.center.lat, state.center.lon]);
 
-    list.forEach(s => {
+    const LABELED_COUNT = 6; // só os mais baratos mostram o preço no mapa — o resto fica só o pontinho
+
+    list.forEach((s, idx) => {
       const col = colorForPrice(s.t);
       const selected = state.selectedId === s.id;
-      const priceLabel = s.price.toFixed(3);
-      const w = 15 + priceLabel.length * 6.2 + (selected ? 6 : 0);
-      const h = selected ? 22 : 18;
-      const icon = L.divIcon({
-        className:'', iconSize:[w,h], iconAnchor:[w/2,h/2],
-        html:`<div class="price-pin ${selected?'selected':''}" style="background:${col};">${priceLabel}</div>`
-      });
+      const showLabel = idx < LABELED_COUNT || selected;
+      let icon;
+      if (showLabel){
+        const priceLabel = s.price.toFixed(3);
+        const w = 15 + priceLabel.length * 6.2 + (selected ? 6 : 0);
+        const h = selected ? 22 : 18;
+        icon = L.divIcon({
+          className:'', iconSize:[w,h], iconAnchor:[w/2,h/2],
+          html:`<div class="price-pin ${selected?'selected':''}" style="background:${col};">${priceLabel}</div>`
+        });
+      } else {
+        const size = 12;
+        icon = L.divIcon({
+          className:'', iconSize:[size,size], iconAnchor:[size/2,size/2],
+          html:`<div class="price-dot" style="background:${col};"></div>`
+        });
+      }
       const marker = L.marker([s.lat, s.lon], { icon }).addTo(markersLayer);
       const priceTxt = s.price.toFixed(3) + ' €/l';
       marker.bindPopup(`<div class="popup-name">${s.name}</div><div class="popup-sub">${s.brand} · ${s.municipio}</div><div class="popup-power" style="color:${col}">${priceTxt}</div>`, { closeButton:false, autoClose:true });
