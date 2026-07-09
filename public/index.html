@@ -74,6 +74,9 @@
 
   .info-box{ position:absolute; top:64px; left:14px; right:14px; z-index:499; font-size:11.5px; line-height:1.5; color:var(--text-muted); border-radius:12px; padding:10px 12px; opacity:0; transform:translateY(-6px) scale(0.98); pointer-events:none; transition:opacity .18s ease, transform .18s ease; }
   .info-box.open{ opacity:1; transform:translateY(0) scale(1); pointer-events:auto; }
+  .info-row{ padding:4px 0; border-top:1px solid rgba(255,255,255,0.06); }
+  .info-row:first-child{ border-top:none; padding-top:0; }
+  .info-row b{ color:var(--cyan); font-weight:600; }
   .info-box b{ color:var(--cyan); font-weight:600; }
 
   /* filter popover panel */
@@ -160,11 +163,10 @@
   .ev-card .conn-row{ display:flex; gap:4px; margin-top:5px; flex-wrap:wrap; }
   .ev-card .fav-btn{ position:absolute; top:6px; right:6px; }
   .empty-card{ padding:16px 14px; text-align:center; color:var(--text-muted); font-size:12px; border-radius:16px; margin:0 14px; flex:1; }
-  .loading-card{ padding:16px 14px; text-align:center; color:var(--cyan); font-size:12px; border-radius:16px; margin:0 14px; flex:1; display:flex; align-items:center; justify-content:center; gap:8px; }
-  .loading-dot{ width:6px; height:6px; border-radius:50%; background:var(--cyan); animation:pulseDot 1s ease-in-out infinite; }
-  .loading-dot:nth-child(2){ animation-delay:0.15s; }
-  .loading-dot:nth-child(3){ animation-delay:0.3s; }
-  @keyframes pulseDot{ 0%,100%{ opacity:0.25; transform:scale(0.8); } 50%{ opacity:1; transform:scale(1.1); } }
+  .skeleton-card{ flex:0 0 auto; width:150px; border-radius:16px; padding:10px 11px; }
+  .skeleton-bar{ border-radius:6px; background:linear-gradient(90deg, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.05) 75%); background-size:200% 100%; animation:shimmer 1.4s ease-in-out infinite; }
+  @keyframes shimmer{ 0%{ background-position:200% 0; } 100%{ background-position:-200% 0; } }
+  
 
   .pin-dot{ border-radius:50%; border:2px solid var(--bg); display:flex; align-items:center; justify-content:center; font-size:9px; animation:pinPop .25s cubic-bezier(.34,1.56,.64,1) backwards; }
   @keyframes pinPop{ from{ transform:scale(0); opacity:0; } to{ transform:scale(1); opacity:1; } }
@@ -219,30 +221,22 @@
       </div>
 
       <div class="info-box glass" id="infoBox">
-        Localização, potência e tomada são <b>dados reais</b> do <b>OpenStreetMap</b> (comunidade). Não existe fonte
-        pública com o preço exato em tempo real por posto, por isso não o mostramos.
-        <br/><br/>
-        O "consumo estimado" ao selecionar um posto usa a <b>altitude real do percurso</b> (subidas custam mais,
-        descidas recuperam parte via travagem regenerativa), mas assume valores médios (carro ~1600kg, ~170Wh/km,
-        60% de recuperação) — não é o consumo exato do teu carro.
-        <br/><br/>
-        A etiqueta "alcança"/"fora de alcance" na lista usa uma <b>estimativa rápida</b> (linha reta × 1,3); a
-        estimativa exata (com altitude) só é calculada para o posto que selecionares.
-        <br/><br/>
-        "Aberto agora" baseia-se no horário indicado no OpenStreetMap, quando existe — postos sem horário indicado
-        são tratados como sempre acessíveis.
+        <div class="info-row"><b>📍 Dados</b> — reais, via OpenStreetMap (comunidade). Sem preço em tempo real fiável.</div>
+        <div class="info-row"><b>🔋 Consumo</b> — estimativa com altitude real da rota (carro médio ~1600kg).</div>
+        <div class="info-row"><b>✓ Alcança</b> — estimativa rápida na lista; exata só no posto selecionado.</div>
+        <div class="info-row"><b>🕐 Aberto</b> — segundo o horário no OpenStreetMap, quando existe.</div>
       </div>
 
       <div class="filter-panel glass" id="filterPanel">
         <div class="filter-row" id="powerFilters"></div>
         <div class="filter-row" id="connectorFilters"></div>
         <div class="autonomy-row">
-          <span class="autonomy-label">🔋 Autonomia do carro</span>
+          <span class="autonomy-label">🔋 Autonomia</span>
           <input type="number" id="autonomyInput" placeholder="ex: 150" min="0" max="900" />
           <span class="autonomy-unit">km</span>
           <button id="autonomyClear" title="Limpar">✕</button>
         </div>
-        <div class="autonomy-hint">Marca os postos como alcançáveis com base numa estimativa (não é a rota exata).</div>
+        <div class="autonomy-hint">Estimativa — não é a rota exata.</div>
       </div>
 
       <div class="map-banner glass" id="mapBanner"></div>
@@ -279,7 +273,7 @@
         <div class="carousel" id="carousel"></div>
       </div>
 
-      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: eox-tilefix-v15</div>
+      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: polish-v16</div>
     </div>
   </div>
 </div>
@@ -522,7 +516,7 @@
       setFallbackMode(true);
       hideMapLoading();
     }
-  }, 10000);
+  }, 7000);
 
   document.getElementById('mapToggle').addEventListener('click', () => {
     setFallbackMode(!usingFallbackMap);
@@ -588,7 +582,12 @@
   function renderLoadingState(){
     if (!isLoadingStations) return;
     const el = document.getElementById('carousel');
-    el.innerHTML = `<div class="loading-card glass"><span class="loading-dot"></span><span class="loading-dot"></span><span class="loading-dot"></span>&nbsp;a procurar postos…</div>`;
+    const card = `<div class="skeleton-card glass">
+      <div class="skeleton-bar" style="height:12px; width:70%; margin-bottom:8px;"></div>
+      <div class="skeleton-bar" style="height:9px; width:50%; margin-bottom:6px;"></div>
+      <div class="skeleton-bar" style="height:9px; width:40%;"></div>
+    </div>`;
+    el.innerHTML = card.repeat(4);
   }
 
   const ROAD_ESTIMATE_FACTOR = 1.3; // aproximação rápida para a lista (a exata só é calculada para o posto selecionado)
@@ -707,15 +706,13 @@
 
       const consumoEl = document.getElementById('hudConsumo');
       if (data.effectiveKm != null){
-        const diff = data.effectiveKm - data.distanceKm;
-        const sinal = diff >= 0 ? '+' : '';
-        const desc = data.elevationLossM > data.elevationGainM ? 'sobretudo a descer' : data.elevationGainM > data.elevationLossM ? 'sobretudo a subir' : 'terreno equilibrado';
-        let autonomyLine = '';
+        const desc = data.elevationLossM > data.elevationGainM ? '↓ desce mais' : data.elevationGainM > data.elevationLossM ? '↑ sobe mais' : '≈ equilibrado';
+        let autonomyBadge = '';
         if (state.autonomyKm){
           const reach = data.effectiveKm <= state.autonomyKm;
-          autonomyLine = `<br/>${reach ? '✅ dentro da tua autonomia' : '⚠️ pode ficar fora da tua autonomia'} (${state.autonomyKm}km)`;
+          autonomyBadge = reach ? ' · <span style="color:#34D399">✅ dentro do alcance</span>' : ' · <span style="color:#F87171">⚠️ fora do alcance</span>';
         }
-        consumoEl.innerHTML = `🔋 consumo estimado ≈ <b>${data.effectiveKm.toFixed(1)} km</b> em plano (${sinal}${diff.toFixed(1)}km, ${desc}: ↑${data.elevationGainM}m ↓${data.elevationLossM}m)${autonomyLine}`;
+        consumoEl.innerHTML = `🔋 <b>${data.effectiveKm.toFixed(1)} km</b> equiv. em plano (${desc})${autonomyBadge}`;
       } else {
         consumoEl.textContent = '';
       }
@@ -922,7 +919,7 @@
 
     const connEl = document.getElementById('connectorFilters');
     connEl.innerHTML =
-      `<button class="chip" data-conn="all" data-label="Todas as tomadas">Todas as tomadas</button>` +
+      `<button class="chip" data-conn="all" data-label="Tomadas">Tomadas</button>` +
       CONNECTOR_TYPES.map(c => `<button class="chip" data-conn="${c.key}" data-label="${c.label}">${c.label}</button>`).join('');
     connEl.querySelectorAll('[data-conn]').forEach(btn => {
       btn.addEventListener('click', () => {
