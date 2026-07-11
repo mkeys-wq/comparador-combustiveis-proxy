@@ -148,6 +148,7 @@
 
   /* carousel */
   .carousel-wrap{ position:absolute; left:0; right:0; bottom:0; z-index:400; padding:10px 0 14px; }
+  .freshness-badge{ position:absolute; left:0; right:0; bottom:128px; z-index:390; text-align:center; font-size:9px; color:rgba(143,160,184,0.55); font-family:'JetBrains Mono',monospace; letter-spacing:0.2px; pointer-events:none; }
   .carousel{ display:flex; gap:8px; overflow-x:auto; padding:0 14px; scroll-snap-type:x proximity; }
   .carousel::-webkit-scrollbar{ display:none; }
   .ev-card{ scroll-snap-align:start; flex:0 0 auto; width:150px; border-radius:16px; padding:10px 11px; cursor:pointer; position:relative; animation:cardIn .28s ease backwards; transition:transform .15s ease; }
@@ -169,9 +170,8 @@
   
 
   .pin-dot{ border-radius:50%; border:2px solid var(--bg); display:flex; align-items:center; justify-content:center; font-size:9px; animation:pinPop .25s cubic-bezier(.34,1.56,.64,1) backwards; }
-  .price-pin{ height:100%; border-radius:999px; border:1.5px solid rgba(5,7,12,0.8); display:flex; align-items:center; justify-content:center; font-family:'JetBrains Mono',monospace; font-size:10.5px; font-weight:700; color:#05070C; padding:0 6px; white-space:nowrap; box-shadow:0 2px 6px rgba(0,0,0,0.4); animation:pinPop .25s cubic-bezier(.34,1.56,.64,1) backwards; cursor:pointer; }
-  .price-pin.selected{ font-size:12px; box-shadow:0 0 0 2px #05070C, 0 0 12px 2px rgba(255,255,255,0.3); }
   .price-dot{ width:100%; height:100%; border-radius:50%; border:1.5px solid rgba(5,7,12,0.8); box-shadow:0 1px 3px rgba(0,0,0,0.4); cursor:pointer; animation:pinPop .2s ease backwards; }
+  .price-dot.selected{ border-width:2.5px; border-color:#05070C; box-shadow:0 0 0 2px #05070C, 0 0 12px 2px rgba(255,255,255,0.4); }
   @keyframes pinPop{ from{ transform:scale(0); opacity:0; } to{ transform:scale(1); opacity:1; } }
   .pin-dot.selected{ box-shadow:0 0 0 2px var(--bg), 0 0 0 4px currentColor, 0 0 14px 2px currentColor; }
   .center-pin{ width:20px; height:20px; border-radius:50%; background:radial-gradient(circle,var(--cyan),var(--violet)); border:3px solid #fff; box-shadow:0 0 0 8px rgba(34,211,238,0.2); cursor:grab; }
@@ -259,11 +259,13 @@
         <button class="close-btn" id="hudClose">✕</button>
       </div>
 
+      <div class="freshness-badge" id="freshnessBadge"></div>
+
       <div class="carousel-wrap">
         <div class="carousel" id="carousel"></div>
       </div>
 
-      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v4-msgfix</div>
+      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v6-freshness</div>
     </div>
   </div>
 </div>
@@ -647,28 +649,14 @@
     radiusCircle.setRadius(SEARCH_RADIUS_KM*1000);
     centerMarker.setLatLng([state.center.lat, state.center.lon]);
 
-    const LABELED_COUNT = 6; // só os mais baratos mostram o preço no mapa — o resto fica só o pontinho
-
-    list.forEach((s, idx) => {
+    list.forEach(s => {
       const col = colorForPrice(s.t);
       const selected = state.selectedId === s.id;
-      const showLabel = idx < LABELED_COUNT || selected;
-      let icon;
-      if (showLabel){
-        const priceLabel = s.price.toFixed(3);
-        const w = 15 + priceLabel.length * 6.2 + (selected ? 6 : 0);
-        const h = selected ? 22 : 18;
-        icon = L.divIcon({
-          className:'', iconSize:[w,h], iconAnchor:[w/2,h/2],
-          html:`<div class="price-pin ${selected?'selected':''}" style="background:${col};">${priceLabel}</div>`
-        });
-      } else {
-        const size = 12;
-        icon = L.divIcon({
-          className:'', iconSize:[size,size], iconAnchor:[size/2,size/2],
-          html:`<div class="price-dot" style="background:${col};"></div>`
-        });
-      }
+      const size = selected ? 20 : 13;
+      const icon = L.divIcon({
+        className:'', iconSize:[size,size], iconAnchor:[size/2,size/2],
+        html:`<div class="price-dot ${selected?'selected':''}" style="background:${col};"></div>`
+      });
       const marker = L.marker([s.lat, s.lon], { icon }).addTo(markersLayer);
       const priceTxt = s.price.toFixed(3) + ' €/l';
       marker.bindPopup(`<div class="popup-name">${s.name}</div><div class="popup-sub">${s.brand} · ${s.municipio}</div><div class="popup-power" style="color:${col}">${priceTxt}</div>`, { closeButton:false, autoClose:true });
@@ -710,7 +698,7 @@
       const selected = state.selectedId === s.id;
       svg += `<g transform="translate(${x},${y})" data-id="${s.id}" class="fb-pin" style="cursor:pointer">
         <circle r="${selected?9:6}" fill="${col}" stroke="#05070C" stroke-width="2"/>
-        <text y="-11" text-anchor="middle" fill="${selected?'#E8ECFB':'#8FA0AC'}" font-size="${selected?9:7.5}" font-weight="700" font-family="JetBrains Mono, monospace">${s.price.toFixed(3)}</text>
+        ${selected ? `<text y="-13" text-anchor="middle" fill="#E8ECFB" font-size="9" font-weight="700" font-family="JetBrains Mono, monospace">${s.price.toFixed(3)}€</text>` : ''}
       </g>`;
     });
 
@@ -868,6 +856,21 @@
 
     renderMap(list);
     renderCarousel(list);
+    renderFreshnessBadge(list);
+  }
+
+  // "Marca de água" discreta: mostra a atualização mais recente da DGEG
+  // entre os postos visíveis, para dar confiança de que os dados são reais
+  // e atuais (a DGEG obriga a pelo menos 1 atualização por dia).
+  function renderFreshnessBadge(list){
+    const badge = document.getElementById('freshnessBadge');
+    const withDate = list.filter(s => s.updatedAt);
+    if (withDate.length === 0){ badge.textContent = ''; return; }
+    const mostRecent = withDate.reduce((a,b) => (a.updatedAt > b.updatedAt ? a : b));
+    // formato DGEG: "2026-07-08 09:05" -> "08/07 09:05"
+    const m = mostRecent.updatedAt.match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}:\d{2})/);
+    const nice = m ? `${m[3]}/${m[2]} ${m[4]}` : mostRecent.updatedAt;
+    badge.textContent = `⛽ DGEG · dados até ${nice}`;
   }
 
   // ---------- info box ----------
