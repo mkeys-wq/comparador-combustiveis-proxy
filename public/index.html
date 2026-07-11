@@ -150,7 +150,22 @@
   .carousel-wrap{ position:absolute; left:0; right:0; bottom:0; z-index:400; padding:10px 0 14px; }
   .freshness-badge{ position:absolute; left:0; right:0; bottom:128px; z-index:390; text-align:center; font-size:9px; color:rgba(143,160,184,0.55); font-family:'JetBrains Mono',monospace; letter-spacing:0.2px; pointer-events:none; }
   .carousel{ display:flex; gap:8px; overflow-x:auto; padding:0 14px; scroll-snap-type:x proximity; touch-action:none; -webkit-overflow-scrolling:touch; cursor:grab; }
-  .carousel-wrap{ pointer-events:auto; }
+  .carousel-wrap{ pointer-events:auto; position:relative; }
+  .carousel-arrow{ position:absolute; top:38%; transform:translateY(-50%); width:26px; height:26px; border-radius:50%; background:rgba(14,20,32,0.85); border:1px solid var(--line); color:var(--text); font-size:15px; display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:410; box-shadow:0 2px 8px rgba(0,0,0,0.4); }
+  .carousel-arrow.left{ left:4px; }
+  .carousel-arrow.right{ right:4px; }
+  .carousel-arrow:active{ transform:translateY(-50%) scale(0.9); }
+  .carousel-expand{ position:absolute; top:-26px; right:14px; background:none; border:none; color:var(--text-faint); font-size:10px; font-weight:600; cursor:pointer; padding:4px 6px; }
+  .full-row{ display:flex; align-items:center; gap:10px; padding:11px 4px; border-bottom:1px solid var(--line); cursor:pointer; }
+  .full-row:active{ background:rgba(255,255,255,0.04); }
+  .full-row .rank{ width:20px; text-align:center; font-size:11px; color:var(--text-faint); font-family:'JetBrains Mono',monospace; flex-shrink:0; }
+  .full-row .mid{ flex:1; min-width:0; }
+  .full-row .name{ font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .full-row .sub{ font-size:10.5px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:1px; }
+  .full-row .est-tag{ font-size:9px; font-weight:700; margin-top:3px; display:inline-block; }
+  .full-row .price-block{ text-align:right; flex-shrink:0; }
+  .full-row .price-block .val{ font-family:'JetBrains Mono',monospace; font-size:14px; font-weight:700; }
+  .full-row .price-block .unit{ font-size:8.5px; color:var(--text-faint); }
   .carousel::-webkit-scrollbar{ display:none; }
   .ev-card{ scroll-snap-align:start; flex:0 0 auto; width:150px; border-radius:16px; padding:10px 11px; cursor:pointer; position:relative; animation:cardIn .28s ease backwards; transition:transform .15s ease; }
   .ev-card:active{ transform:scale(0.96); }
@@ -265,10 +280,13 @@
       <div class="freshness-badge" id="freshnessBadge"></div>
 
       <div class="carousel-wrap">
+        <button class="carousel-arrow left" id="carouselArrowLeft" aria-label="Deslizar para a esquerda">‹</button>
         <div class="carousel" id="carousel"></div>
+        <button class="carousel-arrow right" id="carouselArrowRight" aria-label="Deslizar para a direita">›</button>
+        <button class="carousel-expand" id="carouselExpand" aria-label="Ver lista completa">☰ Ver todos</button>
       </div>
 
-      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v9-manualdrag</div>
+      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v10-fulllist</div>
     </div>
   </div>
 </div>
@@ -291,6 +309,17 @@
 
     <div class="eyebrow" id="townListLabel">Sugestões</div>
     <div id="townList"></div>
+  </div>
+</div>
+
+<div class="sheet-backdrop" id="fullListBackdrop">
+  <div class="sheet" style="max-height:88vh;">
+    <div class="sheet-head">
+      <div class="sheet-title display">Todos os postos</div>
+      <button class="sheet-close" id="fullListClose">✕</button>
+    </div>
+    <div class="eyebrow" id="fullListSubtitle">A carregar…</div>
+    <div id="fullList"></div>
   </div>
 </div>
 
@@ -325,6 +354,7 @@
 
   const SEARCH_RADIUS_KM = 20; // raio fixo de pesquisa (não ajustável pelo utilizador)
   const ASSUMED_TANK_L = 45; // depósito médio assumido, para o cálculo de "vale a pena"
+  const ASSUMED_L_PER_100KM_CLIENT = 6.5; // consumo médio assumido, para a estimativa rápida (sem altitude) na lista completa
 
   const toRad = d => d * Math.PI / 180;
   function distanceKm(lat1, lon1, lat2, lon2){
@@ -886,12 +916,21 @@
   carouselEl.addEventListener('pointerup', endCarouselDrag);
   carouselEl.addEventListener('pointercancel', endCarouselDrag);
 
+  document.getElementById('carouselArrowLeft').addEventListener('click', () => {
+    carouselEl.scrollBy({ left: -170, behavior: 'smooth' });
+  });
+  document.getElementById('carouselArrowRight').addEventListener('click', () => {
+    carouselEl.scrollBy({ left: 170, behavior: 'smooth' });
+  });
+
   // ---------- master render ----------
+  let lastList = [];
   async function renderAll(){
     document.getElementById('locLabel').textContent = state.center.name;
     const myToken = ++renderToken;
     const list = await computeList();
     if (myToken !== renderToken) return;
+    lastList = list;
 
     // Se o posto que estava selecionado já não está na lista (mudou o filtro,
     // a localização, etc.), limpa a seleção e a rota — antes ficavam presas.
@@ -902,6 +941,7 @@
     renderMap(list);
     renderCarousel(list);
     renderFreshnessBadge(list);
+    if (fullListBackdrop.classList.contains('open')) renderFullList();
   }
 
   // "Marca de água" discreta: mostra a atualização mais recente da DGEG
@@ -928,6 +968,68 @@
 
   // ---------- location sheet ----------
   const sheetBackdrop = document.getElementById('sheetBackdrop');
+  const fullListBackdrop = document.getElementById('fullListBackdrop');
+
+  document.getElementById('carouselExpand').addEventListener('click', () => {
+    fullListBackdrop.classList.add('open');
+    renderFullList();
+  });
+  document.getElementById('fullListClose').addEventListener('click', () => fullListBackdrop.classList.remove('open'));
+  fullListBackdrop.addEventListener('click', (e) => { if (e.target === fullListBackdrop) fullListBackdrop.classList.remove('open'); });
+
+  const ROAD_ESTIMATE_FACTOR = 1.3; // aproximação rápida (linha reta × fator) — a exata só é calculada ao selecionar
+
+  function renderFullList(){
+    const f = FUELS.find(f => f.key === state.fuel);
+    document.getElementById('fullListSubtitle').textContent = `${lastList.length} postos de ${f ? f.label.toLowerCase() : ''} · mais barato primeiro`;
+    const el = document.getElementById('fullList');
+    if (lastList.length === 0){
+      el.innerHTML = `<div class="empty-card glass">Sem postos encontrados.</div>`;
+      return;
+    }
+    const cheapestNearby = lastList.slice().sort((a,b)=>a.dist-b.dist)[0];
+
+    el.innerHTML = lastList.map((s, idx) => {
+      const col = colorForPrice(s.t);
+      let estTag = '';
+      if (cheapestNearby && cheapestNearby.id !== s.id){
+        const roundTripL = (s.dist * ROAD_ESTIMATE_FACTOR * 2) * (ASSUMED_L_PER_100KM_CLIENT/100);
+        const custoEstim = roundTripL * s.price;
+        const poupancaEstim = (cheapestNearby.price - s.price) * ASSUMED_TANK_L;
+        const netEstim = poupancaEstim - custoEstim;
+        if (s.price < cheapestNearby.price){
+          estTag = `<span class="est-tag" style="color:${netEstim>0?'#34D399':'#F87171'}">${netEstim>0?'✅ estim. compensa':'⚠️ estim. não compensa'}</span>`;
+        }
+      } else if (cheapestNearby && cheapestNearby.id === s.id){
+        estTag = `<span class="est-tag" style="color:#34D399">🏆 mais barato aqui perto</span>`;
+      }
+      return `<div class="full-row" data-id="${s.id}">
+        <div class="rank">${idx+1}</div>
+        <div class="mid">
+          <div class="name">${s.name}</div>
+          <div class="sub">${s.brand} · ${s.municipio} · ${s.dist.toFixed(1)}km</div>
+          ${estTag}
+        </div>
+        <div class="price-block">
+          <div class="val" style="color:${col}">${s.price.toFixed(3)}</div>
+          <div class="unit">€/litro</div>
+        </div>
+      </div>`;
+    }).join('');
+
+    el.querySelectorAll('.full-row').forEach(row => {
+      row.addEventListener('click', () => {
+        const id = row.getAttribute('data-id');
+        const s = lastList.find(x => x.id === id);
+        if (s){
+          fullListBackdrop.classList.remove('open');
+          selectStation(s);
+          map.panTo([s.lat, s.lon]);
+        }
+      });
+    });
+  }
+
   document.getElementById('locBar').addEventListener('click', () => {
     sheetBackdrop.classList.add('open');
     document.getElementById('townSearch').value = '';
