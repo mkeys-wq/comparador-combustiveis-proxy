@@ -149,7 +149,8 @@
   /* carousel */
   .carousel-wrap{ position:absolute; left:0; right:0; bottom:0; z-index:400; padding:10px 0 14px; }
   .freshness-badge{ position:absolute; left:0; right:0; bottom:128px; z-index:390; text-align:center; font-size:9px; color:rgba(143,160,184,0.55); font-family:'JetBrains Mono',monospace; letter-spacing:0.2px; pointer-events:none; }
-  .carousel{ display:flex; gap:8px; overflow-x:auto; padding:0 14px; scroll-snap-type:x proximity; }
+  .carousel{ display:flex; gap:8px; overflow-x:auto; padding:0 14px; scroll-snap-type:x proximity; touch-action:pan-x; -webkit-overflow-scrolling:touch; }
+  .carousel-wrap{ pointer-events:auto; }
   .carousel::-webkit-scrollbar{ display:none; }
   .ev-card{ scroll-snap-align:start; flex:0 0 auto; width:150px; border-radius:16px; padding:10px 11px; cursor:pointer; position:relative; animation:cardIn .28s ease backwards; transition:transform .15s ease; }
   .ev-card:active{ transform:scale(0.96); }
@@ -267,7 +268,7 @@
         <div class="carousel" id="carousel"></div>
       </div>
 
-      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v7-hover</div>
+      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v8-swipefix</div>
     </div>
   </div>
 </div>
@@ -605,10 +606,11 @@
           const poupanca = (nearest.price - s.price) * ASSUMED_TANK_L;
           const net = poupanca - custoViagem;
           const desc = data.elevationLossM > data.elevationGainM ? '↓' : data.elevationGainM > data.elevationLossM ? '↑' : '≈';
+          const faceA = `face a <b>${nearest.name}</b> (${nearest.dist.toFixed(1)}km, ${nearest.price.toFixed(3)}€)`;
           if (net > 0){
-            consumoEl.innerHTML = `⛽ <b style="color:#34D399">✅ Compensa</b> — poupas ≈<b>${net.toFixed(2)}€</b> num depósito de ${ASSUMED_TANK_L}L (ida e volta ${desc} ${data.elevationGainM}↑/${data.elevationLossM}↓m custa ≈${custoViagem.toFixed(2)}€ em combustível)`;
+            consumoEl.innerHTML = `⛽ <b style="color:#34D399">✅ Compensa</b> — poupas ≈<b>${net.toFixed(2)}€</b> num depósito de ${ASSUMED_TANK_L}L ${faceA}. Ida e volta (${desc} ${data.elevationGainM}↑/${data.elevationLossM}↓m) custa ≈${custoViagem.toFixed(2)}€ em combustível.`;
           } else {
-            consumoEl.innerHTML = `⛽ <b style="color:#F87171">⚠️ Não compensa</b> — perdes ≈<b>${Math.abs(net).toFixed(2)}€</b> num depósito de ${ASSUMED_TANK_L}L (a viagem ${desc} custa ≈${custoViagem.toFixed(2)}€, mais do que poupas)`;
+            consumoEl.innerHTML = `⛽ <b style="color:#F87171">⚠️ Não compensa</b> — perdes ≈<b>${Math.abs(net).toFixed(2)}€</b> num depósito de ${ASSUMED_TANK_L}L ${faceA}. A viagem (${desc}) custa ≈${custoViagem.toFixed(2)}€, mais do que poupas.`;
           }
         } else if (nearest) {
           consumoEl.innerHTML = `⛽ Tens uma opção igual ou mais barata mais perto — <b>${nearest.name}</b> a ${nearest.dist.toFixed(1)}km por ${nearest.price.toFixed(3)}€. Não vale a pena vir até aqui só pelo preço.`;
