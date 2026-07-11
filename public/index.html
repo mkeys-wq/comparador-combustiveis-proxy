@@ -285,7 +285,7 @@
         <button class="carousel-expand" id="carouselExpand" aria-label="Ver lista completa">☰ Ver lista</button>
       </div>
 
-      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v12</div>
+      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v13-accents</div>
     </div>
   </div>
 </div>
@@ -1077,7 +1077,7 @@
   let searchDebounce = null;
   let searchToken = 0;
 
-  document.getElementById('townSearch').addEventListener('input', () => {
+  function handleSearchInput(){
     const q = document.getElementById('townSearch').value.trim();
     clearTimeout(searchDebounce);
     if (q.length < 2){
@@ -1087,7 +1087,14 @@
     document.getElementById('townListLabel').textContent = 'Resultados';
     document.getElementById('searchStatus').textContent = 'A procurar…';
     searchDebounce = setTimeout(() => runGeocodeSearch(q), 400);
-  });
+  }
+  const townSearchInput = document.getElementById('townSearch');
+  townSearchInput.addEventListener('input', handleSearchInput);
+  // Alguns teclados (sobretudo em telemóvel, ao escrever letras acentuadas
+  // como "ã", "ç", através de menus de acentos) nem sempre disparam o evento
+  // 'input' de forma fiável — isto garante que a pesquisa corre na mesma.
+  townSearchInput.addEventListener('compositionend', handleSearchInput);
+  townSearchInput.addEventListener('keyup', handleSearchInput);
 
   async function runGeocodeSearch(q){
     const myToken = ++searchToken;
