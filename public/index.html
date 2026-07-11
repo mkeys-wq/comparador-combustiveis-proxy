@@ -285,7 +285,7 @@
         <button class="carousel-expand" id="carouselExpand" aria-label="Ver lista completa">☰ Ver lista</button>
       </div>
 
-      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v13-accents</div>
+      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v14-debug</div>
     </div>
   </div>
 </div>
@@ -1098,15 +1098,23 @@
 
   async function runGeocodeSearch(q){
     const myToken = ++searchToken;
+    const statusEl = document.getElementById('searchStatus');
+    const townListEl = document.getElementById('townList');
+    const url = `/api/geocode?q=${encodeURIComponent(q)}`;
     try {
-      const res = await fetch(`/api/geocode?q=${encodeURIComponent(q)}`);
+      const res = await fetch(url);
       if (myToken !== searchToken) return;
-      const json = await res.json();
+      const rawText = await res.text();
+      let json;
+      try {
+        json = JSON.parse(rawText);
+      } catch (parseErr) {
+        statusEl.textContent = `⚠️ DEBUG: resposta não é JSON válido. Pedido: "${q}" → status ${res.status}. Início da resposta: ${rawText.slice(0,150)}`;
+        return;
+      }
       const results = Array.isArray(json.results) ? json.results : [];
-      const statusEl = document.getElementById('searchStatus');
-      const townListEl = document.getElementById('townList');
       if (results.length === 0){
-        statusEl.textContent = '';
+        statusEl.textContent = `⚠️ DEBUG: 0 resultados. Pedido: q="${q}" (${q.length} car.) → URL: ${url} → status ${res.status} → corpo: ${rawText.slice(0,200)}`;
         townListEl.innerHTML = `<div style="font-size:12px;color:var(--text-muted);padding:10px 4px;">Nenhum resultado encontrado.</div>`;
         return;
       }
@@ -1119,7 +1127,7 @@
       wireTownButtons();
     } catch (e) {
       if (myToken !== searchToken) return;
-      document.getElementById('searchStatus').textContent = 'Falha na pesquisa. Tenta novamente.';
+      statusEl.textContent = `⚠️ DEBUG: erro de rede/JS ao pedir "${q}" → ${url} → ${e.message}`;
     }
   }
 
