@@ -171,7 +171,9 @@
 
   .pin-dot{ border-radius:50%; border:2px solid var(--bg); display:flex; align-items:center; justify-content:center; font-size:9px; animation:pinPop .25s cubic-bezier(.34,1.56,.64,1) backwards; }
   .price-dot{ width:100%; height:100%; border-radius:50%; border:1.5px solid rgba(5,7,12,0.8); box-shadow:0 1px 3px rgba(0,0,0,0.4); cursor:pointer; animation:pinPop .2s ease backwards; }
-  .price-dot.selected{ border-width:2.5px; border-color:#05070C; box-shadow:0 0 0 2px #05070C, 0 0 12px 2px rgba(255,255,255,0.4); }
+  .price-pin{ width:100%; height:100%; border-radius:999px; display:flex; align-items:center; justify-content:center; font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:800; color:#05070C; box-shadow:0 0 0 2px #05070C, 0 3px 10px rgba(0,0,0,0.5); animation:pinPop .22s cubic-bezier(.34,1.56,.64,1) backwards; cursor:pointer; }
+  .leaflet-tooltip.price-watermark{ background:rgba(5,7,12,0.55); border:none; box-shadow:none; color:rgba(232,236,251,0.85); font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:600; padding:3px 7px; border-radius:6px; backdrop-filter:blur(2px); }
+  .leaflet-tooltip.price-watermark::before{ display:none; }
   @keyframes pinPop{ from{ transform:scale(0); opacity:0; } to{ transform:scale(1); opacity:1; } }
   .pin-dot.selected{ box-shadow:0 0 0 2px var(--bg), 0 0 0 4px currentColor, 0 0 14px 2px currentColor; }
   .center-pin{ width:20px; height:20px; border-radius:50%; background:radial-gradient(circle,var(--cyan),var(--violet)); border:3px solid #fff; box-shadow:0 0 0 8px rgba(34,211,238,0.2); cursor:grab; }
@@ -265,7 +267,7 @@
         <div class="carousel" id="carousel"></div>
       </div>
 
-      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v6-freshness</div>
+      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v7-hover</div>
     </div>
   </div>
 </div>
@@ -652,15 +654,26 @@
     list.forEach(s => {
       const col = colorForPrice(s.t);
       const selected = state.selectedId === s.id;
-      const size = selected ? 20 : 13;
-      const icon = L.divIcon({
-        className:'', iconSize:[size,size], iconAnchor:[size/2,size/2],
-        html:`<div class="price-dot ${selected?'selected':''}" style="background:${col};"></div>`
-      });
+      const priceLabel = s.price.toFixed(3);
+      let icon;
+      if (selected){
+        const w = 16 + priceLabel.length * 6.4;
+        icon = L.divIcon({
+          className:'', iconSize:[w,22], iconAnchor:[w/2,11],
+          html:`<div class="price-pin" style="background:${col};">${priceLabel}</div>`
+        });
+      } else {
+        const size = 13;
+        icon = L.divIcon({
+          className:'', iconSize:[size,size], iconAnchor:[size/2,size/2],
+          html:`<div class="price-dot" style="background:${col};"></div>`
+        });
+      }
       const marker = L.marker([s.lat, s.lon], { icon }).addTo(markersLayer);
-      const priceTxt = s.price.toFixed(3) + ' €/l';
-      marker.bindPopup(`<div class="popup-name">${s.name}</div><div class="popup-sub">${s.brand} · ${s.municipio}</div><div class="popup-power" style="color:${col}">${priceTxt}</div>`, { closeButton:false, autoClose:true });
-      marker.on('click', () => { selectStation(s); marker.openPopup(); });
+      if (!selected){
+        marker.bindTooltip(priceLabel, { direction:'top', offset:[0,-6], className:'price-watermark', opacity:1 });
+      }
+      marker.on('click', () => { selectStation(s); });
       markersById[s.id] = marker;
     });
   }
