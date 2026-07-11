@@ -282,10 +282,10 @@
         <button class="carousel-arrow left" id="carouselArrowLeft" aria-label="Deslizar para a esquerda">‹</button>
         <div class="carousel" id="carousel"></div>
         <button class="carousel-arrow right" id="carouselArrowRight" aria-label="Deslizar para a direita">›</button>
-        <button class="carousel-expand" id="carouselExpand" aria-label="Ver lista completa">☰ Ver todos</button>
+        <button class="carousel-expand" id="carouselExpand" aria-label="Ver lista completa">☰ Ver lista</button>
       </div>
 
-      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v11-bottomfix</div>
+      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v12</div>
     </div>
   </div>
 </div>
@@ -353,7 +353,6 @@
 
   const SEARCH_RADIUS_KM = 20; // raio fixo de pesquisa (não ajustável pelo utilizador)
   const ASSUMED_TANK_L = 45; // depósito médio assumido, para o cálculo de "vale a pena"
-  const ASSUMED_L_PER_100KM_CLIENT = 6.5; // consumo médio assumido, para a estimativa rápida (sem altitude) na lista completa
 
   const toRad = d => d * Math.PI / 180;
   function distanceKm(lat1, lon1, lat2, lon2){
@@ -625,9 +624,12 @@
 
       const consumoEl = document.getElementById('hudConsumo');
       if (data.litersOneWay != null){
-        const nearest = rawStations
+        // "nearest" = o posto mais próximo da TUA localização (não do selecionado)
+        // — s.dist já vem do servidor calculado a partir do teu ponto de partida.
+        const nearestToUser = rawStations
           .filter(x => x.id !== s.id)
           .sort((a,b) => a.dist - b.dist)[0];
+        const nearest = nearestToUser;
 
         if (nearest && nearest.price > s.price){
           const roundTripL = data.litersOneWay * 2;
@@ -976,8 +978,6 @@
   document.getElementById('fullListClose').addEventListener('click', () => fullListBackdrop.classList.remove('open'));
   fullListBackdrop.addEventListener('click', (e) => { if (e.target === fullListBackdrop) fullListBackdrop.classList.remove('open'); });
 
-  const ROAD_ESTIMATE_FACTOR = 1.3; // aproximação rápida (linha reta × fator) — a exata só é calculada ao selecionar
-
   function renderFullList(){
     const f = FUELS.find(f => f.key === state.fuel);
     document.getElementById('fullListSubtitle').textContent = `${lastList.length} postos de ${f ? f.label.toLowerCase() : ''} · mais barato primeiro`;
@@ -986,28 +986,13 @@
       el.innerHTML = `<div class="empty-card glass">Sem postos encontrados.</div>`;
       return;
     }
-    const cheapestNearby = lastList.slice().sort((a,b)=>a.dist-b.dist)[0];
-
     el.innerHTML = lastList.map((s, idx) => {
       const col = colorForPrice(s.t);
-      let estTag = '';
-      if (cheapestNearby && cheapestNearby.id !== s.id){
-        const roundTripL = (s.dist * ROAD_ESTIMATE_FACTOR * 2) * (ASSUMED_L_PER_100KM_CLIENT/100);
-        const custoEstim = roundTripL * s.price;
-        const poupancaEstim = (cheapestNearby.price - s.price) * ASSUMED_TANK_L;
-        const netEstim = poupancaEstim - custoEstim;
-        if (s.price < cheapestNearby.price){
-          estTag = `<span class="est-tag" style="color:${netEstim>0?'#34D399':'#F87171'}">${netEstim>0?'✅ estim. compensa':'⚠️ estim. não compensa'}</span>`;
-        }
-      } else if (cheapestNearby && cheapestNearby.id === s.id){
-        estTag = `<span class="est-tag" style="color:#34D399">🏆 mais barato aqui perto</span>`;
-      }
       return `<div class="full-row" data-id="${s.id}">
         <div class="rank">${idx+1}</div>
         <div class="mid">
           <div class="name">${s.name}</div>
           <div class="sub">${s.brand} · ${s.municipio} · ${s.dist.toFixed(1)}km</div>
-          ${estTag}
         </div>
         <div class="price-block">
           <div class="val" style="color:${col}">${s.price.toFixed(3)}</div>
