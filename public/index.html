@@ -147,10 +147,9 @@
   @keyframes dashscroll{ to{ stroke-dashoffset:-16; } }
 
   /* carousel */
-  .carousel-wrap{ position:absolute; left:0; right:0; bottom:0; z-index:400; padding:10px 0 14px; }
+  .carousel-wrap{ position:absolute; left:0; right:0; bottom:0; z-index:400; padding:10px 0 14px; pointer-events:auto; }
   .freshness-badge{ position:absolute; left:0; right:0; bottom:128px; z-index:390; text-align:center; font-size:9px; color:rgba(143,160,184,0.55); font-family:'JetBrains Mono',monospace; letter-spacing:0.2px; pointer-events:none; }
   .carousel{ display:flex; gap:8px; overflow-x:auto; padding:0 14px; scroll-snap-type:x proximity; touch-action:none; -webkit-overflow-scrolling:touch; cursor:grab; }
-  .carousel-wrap{ pointer-events:auto; position:relative; }
   .carousel-arrow{ position:absolute; top:38%; transform:translateY(-50%); width:26px; height:26px; border-radius:50%; background:rgba(14,20,32,0.85); border:1px solid var(--line); color:var(--text); font-size:15px; display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:410; box-shadow:0 2px 8px rgba(0,0,0,0.4); }
   .carousel-arrow.left{ left:4px; }
   .carousel-arrow.right{ right:4px; }
@@ -286,7 +285,7 @@
         <button class="carousel-expand" id="carouselExpand" aria-label="Ver lista completa">☰ Ver todos</button>
       </div>
 
-      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v10-fulllist</div>
+      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v11-bottomfix</div>
     </div>
   </div>
 </div>
