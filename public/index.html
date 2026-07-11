@@ -149,7 +149,7 @@
   /* carousel */
   .carousel-wrap{ position:absolute; left:0; right:0; bottom:0; z-index:400; padding:10px 0 14px; }
   .freshness-badge{ position:absolute; left:0; right:0; bottom:128px; z-index:390; text-align:center; font-size:9px; color:rgba(143,160,184,0.55); font-family:'JetBrains Mono',monospace; letter-spacing:0.2px; pointer-events:none; }
-  .carousel{ display:flex; gap:8px; overflow-x:auto; padding:0 14px; scroll-snap-type:x proximity; touch-action:pan-x; -webkit-overflow-scrolling:touch; }
+  .carousel{ display:flex; gap:8px; overflow-x:auto; padding:0 14px; scroll-snap-type:x proximity; touch-action:none; -webkit-overflow-scrolling:touch; cursor:grab; }
   .carousel-wrap{ pointer-events:auto; }
   .carousel::-webkit-scrollbar{ display:none; }
   .ev-card{ scroll-snap-align:start; flex:0 0 auto; width:150px; border-radius:16px; padding:10px 11px; cursor:pointer; position:relative; animation:cardIn .28s ease backwards; transition:transform .15s ease; }
@@ -268,7 +268,7 @@
         <div class="carousel" id="carousel"></div>
       </div>
 
-      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v8-swipefix</div>
+      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v9-manualdrag</div>
     </div>
   </div>
 </div>
@@ -759,19 +759,19 @@
     }).join('');
     el.querySelectorAll('.ev-card').forEach(card => {
       card.addEventListener('click', () => {
+        if (carouselDragState.moved) return; // foi um arrasto, não um toque — não seleciona
         const id = card.getAttribute('data-id');
         const s = list.find(x => x.id === id);
         if (s){
           selectStation(s);
           map.panTo([s.lat, s.lon]);
-          const m = markersById[id];
-          if (m) m.openPopup();
           card.scrollIntoView({ behavior:'smooth', inline:'center', block:'nearest' });
         }
       });
     });
     el.querySelectorAll('.fav-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
+        if (carouselDragState.moved) return;
         e.stopPropagation();
         const id = btn.getAttribute('data-fav-id');
         const s = list.find(x => x.id === id);
@@ -855,6 +855,36 @@
   document.getElementById('zoomOutBtn').addEventListener('click', () => {
     if (!usingFallbackMap) map.zoomOut();
   });
+
+  // ---------- deslizar a lista de postos (controlo manual, não depende do
+  // scroll nativo do browser — evita conflito com os gestos do mapa por baixo) ----------
+  const carouselDragState = { active:false, startX:0, startScroll:0, moved:false };
+  const carouselEl = document.getElementById('carousel');
+  const DRAG_THRESHOLD = 6; // px — abaixo disto conta como toque, não arrasto
+
+  carouselEl.addEventListener('pointerdown', (e) => {
+    carouselDragState.active = true;
+    carouselDragState.moved = false;
+    carouselDragState.startX = e.clientX;
+    carouselDragState.startScroll = carouselEl.scrollLeft;
+    carouselEl.setPointerCapture(e.pointerId);
+  });
+  carouselEl.addEventListener('pointermove', (e) => {
+    if (!carouselDragState.active) return;
+    const dx = e.clientX - carouselDragState.startX;
+    if (Math.abs(dx) > DRAG_THRESHOLD) carouselDragState.moved = true;
+    if (carouselDragState.moved){
+      carouselEl.scrollLeft = carouselDragState.startScroll - dx;
+    }
+  });
+  function endCarouselDrag(){
+    carouselDragState.active = false;
+    // o "moved" mantém-se até ao próximo toque, para o click do cartão saber
+    // que aquele gesto foi um arrasto e não deve selecionar nada
+    setTimeout(() => { carouselDragState.moved = false; }, 50);
+  }
+  carouselEl.addEventListener('pointerup', endCarouselDrag);
+  carouselEl.addEventListener('pointercancel', endCarouselDrag);
 
   // ---------- master render ----------
   async function renderAll(){
