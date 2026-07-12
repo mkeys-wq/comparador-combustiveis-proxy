@@ -181,6 +181,10 @@
   .full-row .price-block .val{ font-family:'JetBrains Mono',monospace; font-size:14px; font-weight:700; }
   .full-row .price-block .unit{ font-size:8.5px; color:var(--text-faint); }
   .discount-row{ display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--line); }
+  .tank-selector{ display:flex; gap:6px; margin-bottom:10px; }
+  .tank-pill{ flex:1; padding:8px 4px; border-radius:10px; border:1px solid var(--line); background:rgba(255,255,255,0.03); color:var(--text-muted); font-size:11px; font-weight:600; cursor:pointer; text-align:center; }
+  .tank-pill.active{ border-color:var(--cyan); background:rgba(34,211,238,0.14); color:var(--cyan); font-weight:800; }
+  .tank-pill .l{ display:block; font-size:9px; opacity:0.8; margin-top:1px; }
   .discount-row .brand-name{ flex:1; font-size:13px; font-weight:600; }
   .discount-row input{ width:60px; background:rgba(255,255,255,0.06); border:1px solid var(--line); border-radius:8px; padding:6px 8px; color:var(--text); font-size:13px; text-align:right; outline:none; }
   .discount-row input:focus{ border-color:var(--cyan); }
@@ -267,7 +271,7 @@
         <div class="info-row"><b>⛽ Dados</b> — reais, oficiais, atualizados diariamente pela DGEG/ERSE.</div>
         <div class="info-row"><b>🎯 Melhor valor</b> — calcula a rota e a altitude <b>reais</b> para os ~10 postos mais baratos, mostra "✅ compensa"/"⚠️ não compensa" face ao teu posto mais próximo, e ordena pelo custo total de lá ir e voltar (combustível + desgaste). É a vista principal.</div>
         <div class="info-row"><b>💰 Mais barato</b> — lista simples, ordenada só pelo preço, sem cálculos extra.</div>
-        <div class="info-row"><b>Pressupostos assumidos</b> — carro médio (~1400kg, 6,5L/100km), desgaste 0,04€/km (pneus, travões, óleo), depósito de 45L (só para estimar a poupança em €, não para o custo total mostrado). Não é o consumo exato do teu carro.</div>
+        <div class="info-row"><b>Pressupostos assumidos</b> — carro médio (~1400kg, 6,5L/100km) e desgaste 0,04€/km (pneus, travões, óleo). O depósito é o que escolheres (🏍️/🚗/🚐, dentro de "Ver lista") — usado para estimar a poupança e o custo de encher. Não é o consumo exato do teu veículo.</div>
         <div class="info-row"><b>🎫 Descontos</b> — configura os teus (Continente, COMBINA, etc.) no botão 🎫 do topo; aplicam-se aos preços e a todos os cálculos acima.</div>
         <div class="info-row"><b>★ Favoritos</b> — guardados neste telemóvel.</div>
       </div>
@@ -316,7 +320,7 @@
         <button class="carousel-expand" id="carouselExpand" aria-label="Ver lista completa">☰ Ver lista</button>
       </div>
 
-      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v30-swap</div>
+      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v32-idfix</div>
     </div>
   </div>
 </div>
@@ -348,6 +352,7 @@
       <div class="sheet-title display">Todos os postos</div>
       <button class="sheet-close" id="fullListClose">✕</button>
     </div>
+    <div class="tank-selector" id="tankSelector"></div>
     <div class="eyebrow" id="fullListSubtitle">A carregar…</div>
     <div id="fullList"></div>
   </div>
@@ -397,7 +402,6 @@
   ];
 
   const SEARCH_RADIUS_KM = 20; // raio fixo de pesquisa (não ajustável pelo utilizador)
-  const ASSUMED_TANK_L = 45; // depósito médio assumido, para o cálculo de "vale a pena"
   const WEAR_COST_PER_KM = 0.04; // custo assumido de desgaste (pneus, travões, óleo) por km, além do combustível
   const ASSUMED_L_PER_100KM = 6.5; // consumo médio assumido, para a estimativa rápida (sem altitude) na listagem
   const ROAD_FACTOR = 1.3; // aproximação rápida: estrada real costuma ser ~30% mais longa que linha reta
@@ -436,10 +440,17 @@
     return `#${[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('')}`;
   }
 
+  const VEHICLE_TANKS = [
+    { key:'mota', label:'🏍️ Mota', liters:13 },
+    { key:'ligeiro', label:'🚗 Ligeiro', liters:50 },
+    { key:'comercial', label:'🚐 Comercial', liters:70 },
+  ];
+
   const state = {
     center: TOWNS[0], selectedId: null,
     fuel: 'gasoleo', favoritesOnly: false,
     sortMode: 'value', // 'value' (rota real, custo total) ou 'price' (preço simples)
+    tankSizeL: 50, // depósito assumido — mudável pelo utilizador (ver VEHICLE_TANKS)
   };
   let renderToken = 0;
 
@@ -453,7 +464,7 @@
     try { localStorage.setItem(FAV_KEY, JSON.stringify(list)); } catch (e) {}
   }
   function isFavorite(id){
-    return getFavorites().some(f => f.id === id);
+    return getFavorites().some(f => String(f.id) === String(id));
   }
   function toggleFavorite(s){
     const favs = getFavorites();
@@ -718,11 +729,35 @@
 
   function invalidateValueCache(){ valueRankedCache = {}; }
 
+  function renderTankSelector(){
+    const el = document.getElementById('tankSelector');
+    el.innerHTML = VEHICLE_TANKS.map(v => `
+      <button class="tank-pill ${state.tankSizeL===v.liters?'active':''}" data-liters="${v.liters}">
+        ${v.label}<span class="l">${v.liters}L</span>
+      </button>`).join('');
+    el.querySelectorAll('.tank-pill').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const liters = parseInt(btn.getAttribute('data-liters'), 10);
+        if (liters === state.tankSizeL) return;
+        state.tankSizeL = liters;
+        invalidateValueCache();
+        renderTankSelector();
+        renderFullList();
+      });
+    });
+  }
+
   async function computeValueRankedList(baseList){
     const cacheKey = `${state.fuel},${state.center.lat.toFixed(3)},${state.center.lon.toFixed(3)}`;
     if (valueRankedCache[cacheKey]) return valueRankedCache[cacheKey];
 
     const candidates = baseList.slice(0, VALUE_CANDIDATE_COUNT);
+    // garante que o posto mais próximo entra sempre no cálculo, mesmo que não
+    // esteja entre os mais baratos — para lhe podermos indicar a posição.
+    const reference = baseList.slice().sort((a,b) => a.dist - b.dist)[0];
+    if (reference && !candidates.some(c => c.id === reference.id)){
+      candidates.push(reference);
+    }
     if (candidates.length === 0) return [];
 
     const results = await Promise.all(candidates.map(async (s) => {
@@ -734,7 +769,7 @@
         const roundTripKm = data.distanceKm * 2;
         const roundTripL = (data.litersOneWay != null ? data.litersOneWay : (data.distanceKm * ASSUMED_L_PER_100KM/100)) * 2;
         const custoDeslocacao = roundTripKm * WEAR_COST_PER_KM + roundTripL * s.effectivePrice;
-        const totalCost = ASSUMED_TANK_L * s.effectivePrice + custoDeslocacao; // só para ordenar, nunca mostrado (depende do depósito)
+        const totalCost = state.tankSizeL * s.effectivePrice + custoDeslocacao;
         return { ...s, realDistanceKm: data.distanceKm, realDurationMin: data.durationMin, custoDeslocacao, totalCost };
       } catch (e) {
         return null;
@@ -781,7 +816,7 @@
           const custoCombustivel = roundTripL * sPrice;
           const custoDesgaste = roundTripKm * WEAR_COST_PER_KM;
           const custoTotal = custoCombustivel + custoDesgaste;
-          const poupancaBruta = (nearest.effectivePrice - sPrice) * ASSUMED_TANK_L;
+          const poupancaBruta = (nearest.effectivePrice - sPrice) * state.tankSizeL;
           const net = poupancaBruta - custoTotal;
           if (net > 0){
             consumoEl.innerHTML = `<div style="font-size:12.5px;"><b style="color:#34D399">✅ Compensa: ganhas ≈${net.toFixed(2)}€</b></div>
@@ -903,7 +938,7 @@
     el.querySelectorAll('.fb-pin').forEach(g => {
       g.addEventListener('click', () => {
         const id = g.getAttribute('data-id');
-        const s = list.find(x => x.id === id);
+        const s = list.find(x => String(x.id) === String(id));
         if (s) selectStation(s);
       });
     });
@@ -934,7 +969,7 @@
       if (mode === 'value'){
         distRow = `${s.realDistanceKm.toFixed(1)}km real · ${Math.round(s.realDurationMin)}min`;
         if (reference && reference.id !== s.id){
-          const net = (reference.effectivePrice - s.effectivePrice) * ASSUMED_TANK_L - s.custoDeslocacao;
+          const net = (reference.effectivePrice - s.effectivePrice) * state.tankSizeL - s.custoDeslocacao;
           compensaRow = net > 0
             ? `<div class="mini-tag ok">✅ compensa ≈+${net.toFixed(2)}€</div>`
             : `<div class="mini-tag no">⚠️ não compensa ≈−${Math.abs(net).toFixed(2)}€</div>`;
@@ -960,7 +995,7 @@
       card.addEventListener('click', () => {
         if (carouselDragState.moved) return; // foi um arrasto, não um toque — não seleciona
         const id = card.getAttribute('data-id');
-        const s = list.find(x => x.id === id);
+        const s = list.find(x => String(x.id) === String(id));
         if (s){
           selectStation(s);
           map.panTo([s.lat, s.lon]);
@@ -973,7 +1008,7 @@
         if (carouselDragState.moved) return;
         e.stopPropagation();
         const id = btn.getAttribute('data-fav-id');
-        const s = list.find(x => x.id === id);
+        const s = list.find(x => String(x.id) === String(id));
         if (s) toggleFavorite(s);
         if (state.favoritesOnly) renderAll();
         else {
@@ -1165,6 +1200,7 @@
 
   document.getElementById('carouselExpand').addEventListener('click', () => {
     fullListBackdrop.classList.add('open');
+    renderTankSelector();
     renderFullList();
   });
   document.getElementById('fullListClose').addEventListener('click', () => fullListBackdrop.classList.remove('open'));
@@ -1223,13 +1259,17 @@
     // destaque no topo, para comparares tudo o resto com ele.
     const reference = lastList.slice().sort((a,b) => a.dist - b.dist)[0];
 
-    let list, isRealCost;
+    let list, isRealCost, refRank = null;
     if (state.sortMode === 'value'){
       document.getElementById('fullListSubtitle').textContent = `A calcular rotas reais…`;
       el.innerHTML = `<div class="empty-card glass">A calcular…</div>`;
       list = await computeValueRankedList(lastList);
       isRealCost = true;
       document.getElementById('fullListSubtitle').textContent = `${list.length} postos de ${f ? f.label.toLowerCase() : ''} · melhor valor (rota real) primeiro`;
+      if (reference){
+        const idx = list.findIndex(s => s.id === reference.id);
+        if (idx >= 0) refRank = idx + 1;
+      }
     } else {
       list = lastList;
       isRealCost = false;
@@ -1241,12 +1281,19 @@
       return;
     }
 
+    const refFillCost = reference ? (reference.effectivePrice * state.tankSizeL) : null;
+    const refRankLine = isRealCost
+      ? (refRank
+          ? `${refRank === 1 ? '🏆 é o próprio nº1 em melhor valor' : `seria o nº${refRank} em melhor valor a abastecer`}`
+          : `a calcular posição…`)
+      : `a tua opção mais próxima`;
     const refCard = reference ? `
       <div class="full-row ref-pin" data-id="${reference.id}">
         <div class="rank">📍</div>
         <div class="mid">
           <div class="name">${reference.name}</div>
-          <div class="sub">${reference.brand} · ${reference.municipio} · ${reference.dist.toFixed(1)}km — a tua opção mais próxima</div>
+          <div class="sub">${reference.brand} · ${reference.municipio} · ${reference.dist.toFixed(1)}km — ${refRankLine}</div>
+          ${refFillCost != null ? `<span class="full-tag" style="color:var(--text-faint);background:rgba(255,255,255,0.06);">≈${refFillCost.toFixed(2)}€ para encher ${state.tankSizeL}L</span>` : ''}
         </div>
         <div class="price-block">
           <div class="val" style="color:${colorForPrice(reference.t)}">${reference.effectivePrice.toFixed(3)}</div>
@@ -1261,12 +1308,14 @@
       let tag = '', subLine;
       if (isRealCost){
         subLine = `${s.brand} · ${s.municipio} · ${s.realDistanceKm.toFixed(1)}km real · ${Math.round(s.realDurationMin)}min`;
+        const fillCost = s.effectivePrice * state.tankSizeL;
         if (reference && reference.id !== s.id){
-          const poupanca = (reference.effectivePrice - s.effectivePrice) * ASSUMED_TANK_L;
+          const poupanca = (reference.effectivePrice - s.effectivePrice) * state.tankSizeL;
           const net = poupanca - s.custoDeslocacao;
-          tag = net > 0
+          tag = (net > 0
             ? `<span class="full-tag ok">✅ compensa ≈+${net.toFixed(2)}€</span>`
-            : `<span class="full-tag no">⚠️ não compensa ≈−${Math.abs(net).toFixed(2)}€</span>`;
+            : `<span class="full-tag no">⚠️ não compensa ≈−${Math.abs(net).toFixed(2)}€</span>`)
+            + ` <span class="full-tag" style="color:var(--text-faint);background:rgba(255,255,255,0.06);">≈${fillCost.toFixed(2)}€ para encher ${state.tankSizeL}L</span>`;
         }
       } else {
         // "Mais barato" é só a lista simples por preço, sem cálculos extra.
@@ -1291,7 +1340,7 @@
     el.querySelectorAll('.full-row').forEach(row => {
       row.addEventListener('click', () => {
         const id = row.getAttribute('data-id');
-        const s = lastList.find(x => x.id === id) || (reference && reference.id === id ? reference : null);
+        const s = lastList.find(x => String(x.id) === String(id)) || (reference && String(reference.id) === String(id) ? reference : null);
         if (s){
           fullListBackdrop.classList.remove('open');
           selectStation(s);
