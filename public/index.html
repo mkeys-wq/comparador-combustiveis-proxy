@@ -148,6 +148,9 @@
   @keyframes dashscroll{ to{ stroke-dashoffset:-16; } }
 
   /* carousel */
+  .sort-tabs{ position:absolute; left:14px; right:14px; bottom:150px; z-index:395; display:flex; gap:6px; }
+  .sort-tab{ flex:1; padding:7px 4px; border-radius:10px; border:1px solid var(--line); background:rgba(10,14,24,0.74); backdrop-filter:blur(10px); color:var(--text-muted); font-size:11px; font-weight:600; cursor:pointer; text-align:center; }
+  .sort-tab.active{ border-color:var(--cyan); background:rgba(34,211,238,0.14); color:var(--cyan); font-weight:800; }
   .carousel-wrap{ position:absolute; left:0; right:0; bottom:0; z-index:400; padding:10px 0 14px; pointer-events:auto; }
   .freshness-badge{ position:absolute; left:0; right:0; bottom:128px; z-index:390; text-align:center; font-size:9px; color:rgba(143,160,184,0.55); font-family:'JetBrains Mono',monospace; letter-spacing:0.2px; pointer-events:none; }
   .carousel{ display:flex; gap:8px; overflow-x:auto; padding:0 14px; scroll-snap-type:x proximity; touch-action:none; -webkit-overflow-scrolling:touch; cursor:grab; }
@@ -162,6 +165,10 @@
   .full-row .mid{ flex:1; min-width:0; }
   .full-row .name{ font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .full-row .sub{ font-size:10.5px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:1px; }
+  .full-tag{ display:inline-block; font-size:9px; font-weight:700; margin-top:3px; padding:1px 6px; border-radius:5px; }
+  .full-tag.ok{ background:rgba(52,211,153,0.18); color:#34D399; }
+  .full-tag.no{ background:rgba(244,63,94,0.15); color:#F87171; }
+  .full-tag.ref{ background:rgba(34,211,238,0.15); color:var(--cyan); }
   .full-row .est-tag{ font-size:9px; font-weight:700; margin-top:3px; display:inline-block; }
   .full-row .price-block{ text-align:right; flex-shrink:0; }
   .full-row .price-block .val{ font-family:'JetBrains Mono',monospace; font-size:14px; font-weight:700; }
@@ -245,13 +252,14 @@
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
           <span id="filterTriggerLabel">Filtros</span>
         </button>
-        <button class="icon-pill glass" id="discountBtn" title="Os teus descontos">🎫</button>
+        <button class="icon-pill glass" id="discountBtn" title="Os teus descontos" style="position:relative;">🎫<span id="discountStaleDot" style="display:none; position:absolute; top:6px; right:6px; width:8px; height:8px; border-radius:50%; background:#FBBF24; border:1.5px solid var(--panel-solid);"></span></button>
         <button class="icon-pill glass" id="infoBtn">ⓘ</button>
       </div>
 
       <div class="info-box glass" id="infoBox">
         <div class="info-row"><b>⛽ Dados</b> — reais, oficiais, atualizados diariamente pela DGEG/ERSE.</div>
         <div class="info-row"><b>🗺️ Rota</b> — distância e tempo reais por estrada até ao posto selecionado.</div>
+        <div class="info-row"><b>🎯 Melhor valor</b> — calcula a rota real (não estimativa) para os postos mais baratos, e ordena pelo custo total de lá ir e voltar a abastecer (combustível + desgaste). É a vista principal — "💰 Mais barato" ordena só pelo preço, sem contar a deslocação.</div>
         <div class="info-row"><b>✅ Compensa?</b> — compara o que poupas (depósito de 45L) com o custo de lá chegar (ida e volta, com a altitude real do percurso): combustível + um valor assumido de desgaste (pneus, travões, óleo — 0,04€/km), face ao teu posto mais próximo. Assume um carro médio — não é o consumo exato do teu.</div>
         <div class="info-row"><b>🎫 Descontos</b> — configura os teus (Continente, COMBINA, etc.) no botão 🎫 do topo; aplicam-se aos preços e comparações.</div>
         <div class="info-row"><b>★ Favoritos</b> — guardados neste telemóvel.</div>
@@ -289,6 +297,11 @@
 
       <div class="freshness-badge" id="freshnessBadge"></div>
 
+      <div class="sort-tabs">
+        <button class="sort-tab" id="tabValue" data-mode="value">🎯 Melhor valor</button>
+        <button class="sort-tab" id="tabPrice" data-mode="price">💰 Mais barato</button>
+      </div>
+
       <div class="carousel-wrap">
         <button class="carousel-arrow left" id="carouselArrowLeft" aria-label="Deslizar para a esquerda">‹</button>
         <div class="carousel" id="carousel"></div>
@@ -296,7 +309,7 @@
         <button class="carousel-expand" id="carouselExpand" aria-label="Ver lista completa">☰ Ver lista</button>
       </div>
 
-      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v22-discounts</div>
+      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v25-realvalue</div>
     </div>
   </div>
 </div>
@@ -329,6 +342,7 @@
       <button class="sheet-close" id="fullListClose">✕</button>
     </div>
     <div class="eyebrow" id="fullListSubtitle">A carregar…</div>
+    <div style="font-size:9.5px; color:var(--text-faint); line-height:1.4; margin-bottom:8px;">"Compensa" é uma estimativa rápida (distância + desgaste, sem altitude real) face ao posto mais próximo de ti. Para a conta exata, toca no posto.</div>
     <div id="fullList"></div>
   </div>
 </div>
@@ -379,6 +393,8 @@
   const SEARCH_RADIUS_KM = 20; // raio fixo de pesquisa (não ajustável pelo utilizador)
   const ASSUMED_TANK_L = 45; // depósito médio assumido, para o cálculo de "vale a pena"
   const WEAR_COST_PER_KM = 0.04; // custo assumido de desgaste (pneus, travões, óleo) por km, além do combustível
+  const ASSUMED_L_PER_100KM = 6.5; // consumo médio assumido, para a estimativa rápida (sem altitude) na listagem
+  const ROAD_FACTOR = 1.3; // aproximação rápida: estrada real costuma ser ~30% mais longa que linha reta
 
   const toRad = d => d * Math.PI / 180;
   function distanceKm(lat1, lon1, lat2, lon2){
@@ -417,6 +433,7 @@
   const state = {
     center: TOWNS[0], selectedId: null,
     fuel: 'gasoleo', favoritesOnly: false,
+    sortMode: 'value', // 'value' (rota real, custo total) ou 'price' (preço simples)
   };
   let renderToken = 0;
 
@@ -522,10 +539,23 @@
   let hudLine = null;
 
   // ---------- descontos pessoais (guardados no telemóvel, localStorage) ----------
+  // Cada desconto é guardado como { value: cêntimos/L, updatedAt: timestamp },
+  // para podermos lembrar o utilizador de rever valores antigos (campanhas mudam).
   const DISCOUNT_KEY = 'combustivelmais_descontos';
   function getDiscounts(){
-    try { return JSON.parse(localStorage.getItem(DISCOUNT_KEY) || '{}'); }
-    catch (e) { return {}; }
+    try {
+      const raw = JSON.parse(localStorage.getItem(DISCOUNT_KEY) || '{}');
+      // migração: versões anteriores guardavam só o número (sem data)
+      let migrated = false;
+      Object.keys(raw).forEach(k => {
+        if (typeof raw[k] === 'number'){
+          raw[k] = { value: raw[k], updatedAt: Date.now() };
+          migrated = true;
+        }
+      });
+      if (migrated) saveDiscounts(raw);
+      return raw;
+    } catch (e) { return {}; }
   }
   function saveDiscounts(obj){
     try { localStorage.setItem(DISCOUNT_KEY, JSON.stringify(obj)); } catch (e) {}
@@ -536,9 +566,43 @@
   function getEffectivePrice(station){
     const discounts = getDiscounts();
     const key = normalizeBrand(station.brand);
-    const centsOff = discounts[key];
+    const entry = discounts[key];
+    const centsOff = entry ? entry.value : 0;
     if (!centsOff) return station.price;
     return Math.max(0, station.price - centsOff/100);
+  }
+
+  // Estimativa rápida de "vale a pena", sem pedir a rota real (evita centenas de
+  // pedidos para uma listagem toda) — usa linha reta × fator de estrada. A conta
+  // exata (com altitude real) só é calculada para o posto que selecionares.
+  // Já usa preço efetivo (com desconto), por isso recalcula-se sozinha quando
+  // mudas os teus descontos.
+  function quickCompensa(station, reference){
+    if (!reference || reference.id === station.id) return null;
+    const refPrice = reference.effectivePrice != null ? reference.effectivePrice : getEffectivePrice(reference);
+    const sPrice = station.effectivePrice != null ? station.effectivePrice : getEffectivePrice(station);
+    if (refPrice <= sPrice) return null; // não é mais barato que a opção mais próxima — nada a comparar
+    const roundTripKm = station.dist * ROAD_FACTOR * 2;
+    const custoCombustivel = roundTripKm * (ASSUMED_L_PER_100KM/100) * sPrice;
+    const custoDesgaste = roundTripKm * WEAR_COST_PER_KM;
+    const custoTotal = custoCombustivel + custoDesgaste;
+    const poupancaBruta = (refPrice - sPrice) * ASSUMED_TANK_L;
+    const net = poupancaBruta - custoTotal;
+    return { net, compensa: net > 0 };
+  }
+  function relativeTimeAgo(timestamp){
+    const days = Math.floor((Date.now() - timestamp) / (1000*60*60*24));
+    if (days < 1) return 'hoje';
+    if (days === 1) return 'há 1 dia';
+    if (days < 30) return `há ${days} dias`;
+    const months = Math.floor(days/30);
+    if (months === 1) return 'há 1 mês';
+    return `há ${months} meses`;
+  }
+  function updateStaleDiscountBadge(){
+    const discounts = getDiscounts();
+    const anyStale = Object.values(discounts).some(entry => (Date.now() - entry.updatedAt) > 30*24*60*60*1000);
+    document.getElementById('discountStaleDot').style.display = anyStale ? 'block' : 'none';
   }
 
   // ---------- data ----------
@@ -569,6 +633,9 @@
   let isLoadingStations = false;
   function renderLoadingState(){
     if (!isLoadingStations) return;
+    renderCarouselSkeleton();
+  }
+  function renderCarouselSkeleton(){
     const el = document.getElementById('carousel');
     const card = `<div class="skeleton-card glass">
       <div class="skeleton-bar" style="height:12px; width:70%; margin-bottom:8px;"></div>
@@ -652,6 +719,43 @@
 
     renderAll();
     fetchRoadRoute(s);
+  }
+
+  // ---------- ranking por "melhor valor" (rota real, não estimativa) ----------
+  // Só calculamos a rota real para os N mais baratos (não para todos os postos
+  // da zona) — suficiente para encontrar o melhor, sem pedir dezenas de rotas
+  // de cada vez, o que seria lento e sobrecarregaria o serviço de rotas.
+  const VALUE_CANDIDATE_COUNT = 10;
+  let valueRankedCache = {};
+
+  function invalidateValueCache(){ valueRankedCache = {}; }
+
+  async function computeValueRankedList(baseList){
+    const cacheKey = `${state.fuel},${state.center.lat.toFixed(3)},${state.center.lon.toFixed(3)}`;
+    if (valueRankedCache[cacheKey]) return valueRankedCache[cacheKey];
+
+    const candidates = baseList.slice(0, VALUE_CANDIDATE_COUNT);
+    if (candidates.length === 0) return [];
+
+    const results = await Promise.all(candidates.map(async (s) => {
+      try {
+        const url = `/api/rota?fromLat=${state.center.lat}&fromLon=${state.center.lon}&toLat=${s.lat}&toLon=${s.lon}`;
+        const res = await fetch(url);
+        if (!res.ok) return null;
+        const data = await res.json();
+        const roundTripKm = data.distanceKm * 2;
+        const roundTripL = (data.litersOneWay != null ? data.litersOneWay : (data.distanceKm * ASSUMED_L_PER_100KM/100)) * 2;
+        const custoDeslocacao = roundTripKm * WEAR_COST_PER_KM + roundTripL * s.effectivePrice;
+        const totalCost = ASSUMED_TANK_L * s.effectivePrice + custoDeslocacao;
+        return { ...s, realDistanceKm: data.distanceKm, realDurationMin: data.durationMin, totalCost };
+      } catch (e) {
+        return null;
+      }
+    }));
+
+    const valid = results.filter(Boolean).sort((a,b) => a.totalCost - b.totalCost);
+    valueRankedCache[cacheKey] = valid;
+    return valid;
   }
 
   async function fetchRoadRoute(s){
@@ -818,10 +922,13 @@
   }
 
   // ---------- render: carousel ----------
-  function renderCarousel(list){
+  function renderCarousel(list, mode){
+    mode = mode || 'price';
     const el = document.getElementById('carousel');
     if (list.length === 0){
-      el.innerHTML = state.favoritesOnly
+      el.innerHTML = mode === 'value'
+        ? `<div class="empty-card glass">Não foi possível calcular rotas reais agora. Tenta o separador "Mais barato".</div>`
+        : state.favoritesOnly
         ? `<div class="empty-card glass">Ainda não tens postos favoritos. Toca na estrela ☆ num posto para o guardares.</div>`
         : `<div class="empty-card glass">Sem postos encontrados neste raio para este combustível.</div>`;
       return;
@@ -833,15 +940,21 @@
       const delay = Math.min(idx, 8) * 0.035;
       const rankBadge = idx === 0 ? '🏆' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : '';
       const hasDiscount = s.effectivePrice < s.price - 0.0001;
+      const priceRow = mode === 'value'
+        ? `<div class="power mono" style="color:${col}; font-size:13px;">${s.totalCost.toFixed(2)}€</div>`
+        : `<div class="power mono" style="color:${col}">${s.effectivePrice.toFixed(3)}</div>`;
+      const distRow = mode === 'value'
+        ? `${s.realDistanceKm.toFixed(1)}km real · ${Math.round(s.realDurationMin)}min · ${s.effectivePrice.toFixed(3)}€/L`
+        : `${s.dist.toFixed(1)} km${hasDiscount ? ` · <span style="color:var(--text-faint);text-decoration:line-through;">${s.price.toFixed(3)}</span> 🎫` : ' · €/litro'}`;
       return `<div class="ev-card glass ${selected?'selected':''}" data-id="${s.id}" style="animation-delay:${delay}s;">
         <button class="fav-btn ${fav?'active':''}" data-fav-id="${s.id}">${fav?'★':'☆'}</button>
         ${rankBadge ? `<div class="rank-badge">${rankBadge}</div>` : ''}
         <div class="top-row">
           <div class="name">${s.name}</div>
-          <div class="power mono" style="color:${col}">${s.effectivePrice.toFixed(3)}</div>
+          ${priceRow}
         </div>
         <div class="sub">${s.brand} · ${s.municipio}</div>
-        <div class="dist">${s.dist.toFixed(1)} km${hasDiscount ? ` · <span style="color:var(--text-faint);text-decoration:line-through;">${s.price.toFixed(3)}</span> 🎫` : ' · €/litro'}</div>
+        <div class="dist">${distRow}</div>
       </div>`;
     }).join('');
     el.querySelectorAll('.ev-card').forEach(card => {
@@ -996,9 +1109,17 @@
     }
 
     renderMap(list);
-    renderCarousel(list);
     renderFreshnessBadge(list);
     if (fullListBackdrop.classList.contains('open')) renderFullList();
+
+    if (state.sortMode === 'price'){
+      renderCarousel(list, 'price');
+    } else {
+      renderCarouselSkeleton();
+      const valueList = await computeValueRankedList(list);
+      if (myToken !== renderToken) return;
+      renderCarousel(valueList, 'value');
+    }
   }
 
   // "Marca de água" discreta: mostra a atualização mais recente da DGEG
@@ -1027,6 +1148,22 @@
   const sheetBackdrop = document.getElementById('sheetBackdrop');
   const fullListBackdrop = document.getElementById('fullListBackdrop');
 
+  // ---------- separadores de ordenação (melhor valor vs mais barato) ----------
+  function syncSortTabs(){
+    document.getElementById('tabValue').classList.toggle('active', state.sortMode === 'value');
+    document.getElementById('tabPrice').classList.toggle('active', state.sortMode === 'price');
+  }
+  document.querySelectorAll('.sort-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      const mode = tab.getAttribute('data-mode');
+      if (mode === state.sortMode) return;
+      state.sortMode = mode;
+      syncSortTabs();
+      renderAll();
+    });
+  });
+  syncSortTabs();
+
   document.getElementById('carouselExpand').addEventListener('click', () => {
     fullListBackdrop.classList.add('open');
     renderFullList();
@@ -1051,19 +1188,29 @@
       return;
     }
     const discounts = getDiscounts();
-    el.innerHTML = brands.map(b => `
-      <div class="discount-row">
-        <div class="brand-name">${b}</div>
-        <input type="number" min="0" max="99" step="1" placeholder="0" data-brand="${b}" value="${discounts[b] || ''}" />
+    el.innerHTML = brands.map(b => {
+      const entry = discounts[b];
+      const stale = entry && (Date.now() - entry.updatedAt) > 30*24*60*60*1000; // >30 dias
+      const ageLine = entry
+        ? `<div style="font-size:9px; color:${stale?'#FBBF24':'var(--text-faint)'}; margin-top:2px;">${stale ? '⚠️ definido ' : 'definido '}${relativeTimeAgo(entry.updatedAt)}${stale ? ' — ainda está certo?' : ''}</div>`
+        : '';
+      return `
+      <div class="discount-row" style="align-items:flex-start;">
+        <div class="brand-name">${b}${ageLine}</div>
+        <input type="number" min="0" max="99" step="1" placeholder="0" data-brand="${b}" value="${entry ? entry.value : ''}" />
         <div class="unit-lbl">cênt/L</div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
     el.querySelectorAll('input').forEach(inp => {
       inp.addEventListener('input', () => {
         const v = parseFloat(inp.value);
         const d = getDiscounts();
         const brand = inp.getAttribute('data-brand');
-        if (Number.isFinite(v) && v > 0) d[brand] = v; else delete d[brand];
+        if (Number.isFinite(v) && v > 0) d[brand] = { value: v, updatedAt: Date.now() };
+        else delete d[brand];
         saveDiscounts(d);
+        updateStaleDiscountBadge();
+        invalidateValueCache();
         renderAll();
       });
     });
@@ -1077,14 +1224,26 @@
       el.innerHTML = `<div class="empty-card glass">Sem postos encontrados.</div>`;
       return;
     }
+    const reference = lastList.slice().sort((a,b) => a.dist - b.dist)[0]; // o mais próximo da tua localização atual
     el.innerHTML = lastList.map((s, idx) => {
       const col = colorForPrice(s.t);
       const hasDiscount = s.effectivePrice < s.price - 0.0001;
+      const isReference = reference && reference.id === s.id;
+      const qc = quickCompensa(s, reference);
+      let compensaTag = '';
+      if (isReference){
+        compensaTag = `<span class="full-tag ref">📍 mais próximo</span>`;
+      } else if (qc){
+        compensaTag = qc.compensa
+          ? `<span class="full-tag ok">✅ compensa ≈+${qc.net.toFixed(2)}€</span>`
+          : `<span class="full-tag no">⚠️ não compensa ≈−${Math.abs(qc.net).toFixed(2)}€</span>`;
+      }
       return `<div class="full-row" data-id="${s.id}">
         <div class="rank">${idx+1}</div>
         <div class="mid">
           <div class="name">${s.name}</div>
           <div class="sub">${s.brand} · ${s.municipio} · ${s.dist.toFixed(1)}km</div>
+          ${compensaTag}
         </div>
         <div class="price-block">
           <div class="val" style="color:${col}">${s.effectivePrice.toFixed(3)}</div>
@@ -1238,6 +1397,7 @@
   renderFilterChips();
   refreshFilterTrigger();
   renderAll();
+  updateStaleDiscountBadge();
   setTimeout(() => map.invalidateSize(), 200);
 })();
 </script>
