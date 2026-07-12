@@ -207,7 +207,9 @@
   .search-wrap svg{ position:absolute; left:12px; top:12px; }
   .search-input{ width:100%; background:rgba(255,255,255,0.04); border:1px solid var(--line); border-radius:12px; padding:10px 12px 10px 32px; color:var(--text); font-size:13px; outline:none; }
   .eyebrow{ font-size:11px; color:var(--text-faint); margin:14px 0 6px; text-transform:uppercase; letter-spacing:0.5px; font-weight:600; }
-  .town-btn{ display:flex; align-items:center; gap:8px; background:transparent; border:none; border-radius:10px; padding:10px; color:var(--text); font-size:13px; text-align:left; cursor:pointer; width:100%; }
+  .town-btn{ display:flex; align-items:center; gap:8px; background:rgba(34,211,238,0.07); border:1px solid rgba(34,211,238,0.35); border-radius:10px; padding:12px; margin-bottom:7px; color:var(--text); font-size:13px; font-weight:500; text-align:left; cursor:pointer; width:100%; transition:background .1s ease, transform .1s ease; box-shadow:0 1px 4px rgba(0,0,0,0.3); }
+  .town-btn:active{ background:rgba(34,211,238,0.18); transform:scale(0.98); }
+  .town-btn .go-arrow{ margin-left:auto; color:var(--cyan); font-size:15px; flex-shrink:0; }
   .town-btn.active{ background:rgba(255,255,255,0.06); }
   .town-btn:hover{ background:rgba(255,255,255,0.04); }
   .manual-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px; }
@@ -285,7 +287,7 @@
         <button class="carousel-expand" id="carouselExpand" aria-label="Ver lista completa">☰ Ver lista</button>
       </div>
 
-      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v16-rereadfix</div>
+      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v18-arrowbtn</div>
     </div>
   </div>
 </div>
@@ -1064,6 +1066,7 @@
       <button class="town-btn ${t.name===state.center.name?'active':''}" data-name="${t.name}" data-lat="${t.lat}" data-lon="${t.lon}">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8892B8" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
         <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${t.name}</span>
+        <span class="go-arrow">›</span>
       </button>`).join('');
     wireTownButtons();
   }
@@ -1141,6 +1144,7 @@
         <button class="town-btn" data-name="${r.name.replace(/"/g,'&quot;')}" data-lat="${r.lat}" data-lon="${r.lon}">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8892B8" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
           <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.name}</span>
+          <span class="go-arrow">›</span>
         </button>`).join('');
       wireTownButtons();
     } catch (e) {
