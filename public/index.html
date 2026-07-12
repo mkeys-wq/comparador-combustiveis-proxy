@@ -285,7 +285,7 @@
         <button class="carousel-expand" id="carouselExpand" aria-label="Ver lista completa">☰ Ver lista</button>
       </div>
 
-      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v14-debug</div>
+      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v15-rawtest</div>
     </div>
   </div>
 </div>
@@ -302,9 +302,11 @@
 
     <div class="search-wrap">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5A6488" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-      <input class="search-input" id="townSearch" placeholder="Procurar morada, localidade ou zona em Portugal…" />
+      <input class="search-input" id="townSearch" placeholder="Procurar morada, localidade ou zona em Portugal…"
+        oninput="document.getElementById('rawDebug').textContent = '🔧 RAW: '+this.value.length+' car. — \''+this.value+'\'';" />
     </div>
     <div class="geo-status" id="searchStatus"></div>
+    <div id="rawDebug" style="font-size:11px; color:#34D399; padding:2px 4px;"></div>
 
     <div class="eyebrow" id="townListLabel">Sugestões</div>
     <div id="townList"></div>
@@ -1090,11 +1092,21 @@
   }
   const townSearchInput = document.getElementById('townSearch');
   townSearchInput.addEventListener('input', handleSearchInput);
-  // Alguns teclados (sobretudo em telemóvel, ao escrever letras acentuadas
-  // como "ã", "ç", através de menus de acentos) nem sempre disparam o evento
-  // 'input' de forma fiável — isto garante que a pesquisa corre na mesma.
   townSearchInput.addEventListener('compositionend', handleSearchInput);
   townSearchInput.addEventListener('keyup', handleSearchInput);
+
+  // Reforço definitivo: em vez de confiar só em eventos do teclado (que em
+  // alguns telemóveis não disparam de forma fiável ao escrever acentos),
+  // verificamos ativamente, várias vezes por segundo, se o texto mudou —
+  // isto funciona sempre, independentemente do teclado/browser.
+  let lastPolledValue = '';
+  setInterval(() => {
+    const v = townSearchInput.value;
+    if (v !== lastPolledValue){
+      lastPolledValue = v;
+      handleSearchInput();
+    }
+  }, 250);
 
   async function runGeocodeSearch(q){
     const myToken = ++searchToken;
