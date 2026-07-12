@@ -44,7 +44,8 @@
   .leaflet-control-layers label{ color:var(--text) !important; font-size:12px; }
   .leaflet-control-zoom{ display:none; }
   .leaflet-top.leaflet-right{ margin-top:60px !important; margin-right:14px !important; }
-  .leaflet-control-attribution{ background:rgba(5,7,12,0.7) !important; color:var(--text-faint) !important; font-size:9px; }
+  .leaflet-control-attribution{ background:rgba(5,7,12,0.7) !important; color:var(--text-faint) !important; font-size:9px; z-index:200 !important; }
+  .leaflet-control-container{ z-index:200 !important; }
   .leaflet-control-attribution a{ color:var(--text-muted) !important; }
   .leaflet-popup-content-wrapper{ background:var(--panel-solid); color:var(--text); border-radius:10px; border:1px solid var(--line); }
   .leaflet-popup-tip{ background:var(--panel-solid); }
@@ -244,7 +245,7 @@
       <div class="info-box glass" id="infoBox">
         <div class="info-row"><b>⛽ Dados</b> — reais, oficiais, atualizados diariamente pela DGEG/ERSE.</div>
         <div class="info-row"><b>🗺️ Rota</b> — distância e tempo reais por estrada até ao posto selecionado.</div>
-        <div class="info-row"><b>✅ Compensa?</b> — compara o que poupas (depósito de 45L) com o combustível gasto a lá chegar (ida e volta, com a altitude real do percurso), face ao teu posto mais próximo. Assume um carro médio — não é o consumo exato do teu.</div>
+        <div class="info-row"><b>✅ Compensa?</b> — compara o que poupas (depósito de 45L) com o custo de lá chegar (ida e volta, com a altitude real do percurso): combustível + um valor assumido de desgaste (pneus, travões, óleo — 0,04€/km), face ao teu posto mais próximo. Assume um carro médio — não é o consumo exato do teu.</div>
         <div class="info-row"><b>★ Favoritos</b> — guardados neste telemóvel.</div>
       </div>
 
@@ -287,7 +288,7 @@
         <button class="carousel-expand" id="carouselExpand" aria-label="Ver lista completa">☰ Ver lista</button>
       </div>
 
-      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v18-arrowbtn</div>
+      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v21-wear</div>
     </div>
   </div>
 </div>
@@ -304,11 +305,9 @@
 
     <div class="search-wrap">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5A6488" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-      <input class="search-input" id="townSearch" placeholder="Procurar morada, localidade ou zona em Portugal…"
-        oninput="document.getElementById('rawDebug').textContent = '🔧 RAW: '+this.value.length+' car. — \''+this.value+'\'';" />
+      <input class="search-input" id="townSearch" placeholder="Procurar morada, localidade ou zona em Portugal…" />
     </div>
     <div class="geo-status" id="searchStatus"></div>
-    <div id="rawDebug" style="font-size:11px; color:#34D399; padding:2px 4px;"></div>
 
     <div class="eyebrow" id="townListLabel">Sugestões</div>
     <div id="townList"></div>
@@ -357,6 +356,7 @@
 
   const SEARCH_RADIUS_KM = 20; // raio fixo de pesquisa (não ajustável pelo utilizador)
   const ASSUMED_TANK_L = 45; // depósito médio assumido, para o cálculo de "vale a pena"
+  const WEAR_COST_PER_KM = 0.04; // custo assumido de desgaste (pneus, travões, óleo) por km, além do combustível
 
   const toRad = d => d * Math.PI / 180;
   function distanceKm(lat1, lon1, lat2, lon2){
@@ -636,19 +636,22 @@
         const nearest = nearestToUser;
 
         if (nearest && nearest.price > s.price){
+          const roundTripKm = data.distanceKm * 2;
           const roundTripL = data.litersOneWay * 2;
-          const custoViagem = roundTripL * s.price;
-          const poupanca = (nearest.price - s.price) * ASSUMED_TANK_L;
-          const net = poupanca - custoViagem;
-          const desc = data.elevationLossM > data.elevationGainM ? '↓' : data.elevationGainM > data.elevationLossM ? '↑' : '≈';
-          const faceA = `face a <b>${nearest.name}</b> (${nearest.dist.toFixed(1)}km, ${nearest.price.toFixed(3)}€)`;
+          const custoCombustivel = roundTripL * s.price;
+          const custoDesgaste = roundTripKm * WEAR_COST_PER_KM;
+          const custoTotal = custoCombustivel + custoDesgaste;
+          const poupancaBruta = (nearest.price - s.price) * ASSUMED_TANK_L;
+          const net = poupancaBruta - custoTotal;
           if (net > 0){
-            consumoEl.innerHTML = `⛽ <b style="color:#34D399">✅ Compensa</b> — poupas ≈<b>${net.toFixed(2)}€</b> num depósito de ${ASSUMED_TANK_L}L ${faceA}. Ida e volta (${desc} ${data.elevationGainM}↑/${data.elevationLossM}↓m) custa ≈${custoViagem.toFixed(2)}€ em combustível.`;
+            consumoEl.innerHTML = `<div style="font-size:12.5px;"><b style="color:#34D399">✅ Compensa: ganhas ≈${net.toFixed(2)}€</b></div>
+              <div style="font-size:9.5px; color:var(--text-faint); margin-top:2px;">poupança ${poupancaBruta.toFixed(2)}€ − viagem ${custoTotal.toFixed(2)}€ (combustível+desgaste) · face a ${nearest.name} (${nearest.dist.toFixed(1)}km)</div>`;
           } else {
-            consumoEl.innerHTML = `⛽ <b style="color:#F87171">⚠️ Não compensa</b> — perdes ≈<b>${Math.abs(net).toFixed(2)}€</b> num depósito de ${ASSUMED_TANK_L}L ${faceA}. A viagem (${desc}) custa ≈${custoViagem.toFixed(2)}€, mais do que poupas.`;
+            consumoEl.innerHTML = `<div style="font-size:12.5px;"><b style="color:#F87171">⚠️ Não compensa: perdes ≈${Math.abs(net).toFixed(2)}€</b></div>
+              <div style="font-size:9.5px; color:var(--text-faint); margin-top:2px;">poupança ${poupancaBruta.toFixed(2)}€ − viagem ${custoTotal.toFixed(2)}€ (combustível+desgaste) · face a ${nearest.name} (${nearest.dist.toFixed(1)}km)</div>`;
           }
         } else if (nearest) {
-          consumoEl.innerHTML = `⛽ Tens uma opção igual ou mais barata mais perto — <b>${nearest.name}</b> a ${nearest.dist.toFixed(1)}km por ${nearest.price.toFixed(3)}€. Não vale a pena vir até aqui só pelo preço.`;
+          consumoEl.innerHTML = `⛽ Opção igual ou mais barata mais perto: <b>${nearest.name}</b> (${nearest.dist.toFixed(1)}km, ${nearest.price.toFixed(3)}€).`;
         } else {
           consumoEl.textContent = '';
         }
@@ -1125,17 +1128,10 @@
     try {
       const res = await fetch(url);
       if (myToken !== searchToken) return;
-      const rawText = await res.text();
-      let json;
-      try {
-        json = JSON.parse(rawText);
-      } catch (parseErr) {
-        statusEl.textContent = `⚠️ DEBUG: resposta não é JSON válido. Pedido: "${q}" → status ${res.status}. Início da resposta: ${rawText.slice(0,150)}`;
-        return;
-      }
+      const json = await res.json();
       const results = Array.isArray(json.results) ? json.results : [];
       if (results.length === 0){
-        statusEl.textContent = `⚠️ DEBUG: 0 resultados. Pedido: q="${q}" (${q.length} car.) → URL: ${url} → status ${res.status} → corpo: ${rawText.slice(0,200)}`;
+        statusEl.textContent = '';
         townListEl.innerHTML = `<div style="font-size:12px;color:var(--text-muted);padding:10px 4px;">Nenhum resultado encontrado.</div>`;
         return;
       }
@@ -1149,7 +1145,7 @@
       wireTownButtons();
     } catch (e) {
       if (myToken !== searchToken) return;
-      statusEl.textContent = `⚠️ DEBUG: erro de rede/JS ao pedir "${q}" → ${url} → ${e.message}`;
+      statusEl.textContent = 'Falha na pesquisa. Tenta novamente.';
     }
   }
 
