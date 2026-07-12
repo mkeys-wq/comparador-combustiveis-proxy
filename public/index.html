@@ -182,6 +182,11 @@
   .full-row .price-block .unit{ font-size:8.5px; color:var(--text-faint); }
   .discount-row{ display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--line); }
   .tank-selector{ display:flex; gap:6px; margin-bottom:10px; }
+  .forecast-banner{ display:flex; align-items:center; gap:8px; padding:10px 12px; margin-bottom:10px; border-radius:12px; background:rgba(139,92,246,0.1); border:1px solid rgba(139,92,246,0.3); text-decoration:none; color:var(--text); }
+  .forecast-banner .ico{ font-size:15px; flex-shrink:0; }
+  .forecast-banner .txt{ flex:1; font-size:11.5px; font-weight:600; line-height:1.3; }
+  .forecast-banner .arrow{ color:var(--violet); font-size:14px; flex-shrink:0; }
+  .forecast-banner:active{ background:rgba(139,92,246,0.18); }
   .tank-pill{ flex:1; padding:8px 4px; border-radius:10px; border:1px solid var(--line); background:rgba(255,255,255,0.03); color:var(--text-muted); font-size:11px; font-weight:600; cursor:pointer; text-align:center; }
   .tank-pill.active{ border-color:var(--cyan); background:rgba(34,211,238,0.14); color:var(--cyan); font-weight:800; }
   .tank-pill .l{ display:block; font-size:9px; opacity:0.8; margin-top:1px; }
@@ -271,7 +276,8 @@
         <div class="info-row"><b>⛽ Dados</b> — reais, oficiais, atualizados diariamente pela DGEG/ERSE.</div>
         <div class="info-row"><b>🎯 Melhor valor</b> — calcula a rota e a altitude <b>reais</b> para os ~10 postos mais baratos, mostra "✅ compensa"/"⚠️ não compensa" face ao teu posto mais próximo, e ordena pelo custo total de lá ir e voltar (combustível + desgaste). É a vista principal.</div>
         <div class="info-row"><b>💰 Mais barato</b> — lista simples, ordenada só pelo preço, sem cálculos extra.</div>
-        <div class="info-row"><b>Pressupostos assumidos</b> — carro médio (~1400kg, 6,5L/100km) e desgaste 0,04€/km (pneus, travões, óleo). O depósito é o que escolheres (🏍️/🚗/🚐, dentro de "Ver lista") — usado para estimar a poupança e o custo de encher. Não é o consumo exato do teu veículo.</div>
+        <div class="info-row"><b>Pressupostos assumidos</b> — carro médio (~1400kg, 6,5L/100km) e desgaste 0,04€/km (pneus, travões, óleo), iguais para os três veículos. O depósito muda consoante o que escolheres (🏍️ 13L / 🚗 50L / 🚐 70L, dentro de "Ver lista") — e assim que trocas, tudo recalcula de imediato: a ordenação do "Melhor valor", o "compensa", e o custo de encher, tanto na lista completa como nos cartões. Não é o consumo exato do teu veículo.</div>
+        <div class="info-row"><b>📈 Previsão de preços</b> — em Portugal os preços mudam à segunda-feira, seguindo a cotação do petróleo Brent + câmbio EUR/USD + impostos (ISP/IVA). Dentro de "Ver lista" há uma ligação para a previsão da próxima semana (fonte externa especializada — não calculamos isto nós).</div>
         <div class="info-row"><b>🎫 Descontos</b> — configura os teus (Continente, COMBINA, etc.) no botão 🎫 do topo; aplicam-se aos preços e a todos os cálculos acima.</div>
         <div class="info-row"><b>★ Favoritos</b> — guardados neste telemóvel.</div>
       </div>
@@ -320,7 +326,7 @@
         <button class="carousel-expand" id="carouselExpand" aria-label="Ver lista completa">☰ Ver lista</button>
       </div>
 
-      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v32-idfix</div>
+      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v35-forecast</div>
     </div>
   </div>
 </div>
@@ -352,6 +358,11 @@
       <div class="sheet-title display">Todos os postos</div>
       <button class="sheet-close" id="fullListClose">✕</button>
     </div>
+    <a class="forecast-banner" href="https://precocombustiveis.pt/proxima-semana/" target="_blank" rel="noopener">
+      <span class="ico">📈</span>
+      <span class="txt">Preços sobem ou descem para a semana? Ver previsão</span>
+      <span class="arrow">↗</span>
+    </a>
     <div class="tank-selector" id="tankSelector"></div>
     <div class="eyebrow" id="fullListSubtitle">A carregar…</div>
     <div id="fullList"></div>
@@ -742,7 +753,7 @@
         state.tankSizeL = liters;
         invalidateValueCache();
         renderTankSelector();
-        renderFullList();
+        renderAll(); // atualiza os cartões pequenos também, não só a lista completa
       });
     });
   }
@@ -1284,15 +1295,16 @@
     const refFillCost = reference ? (reference.effectivePrice * state.tankSizeL) : null;
     const refRankLine = isRealCost
       ? (refRank
-          ? `${refRank === 1 ? '🏆 é o próprio nº1 em melhor valor' : `seria o nº${refRank} em melhor valor a abastecer`}`
-          : `a calcular posição…`)
-      : `a tua opção mais próxima`;
+          ? (refRank === 1 ? '🏆 é o próprio nº1 em melhor valor' : `📊 seria o nº${refRank} em melhor valor a abastecer`)
+          : '📊 a calcular posição…')
+      : '📍 a tua opção mais próxima';
     const refCard = reference ? `
       <div class="full-row ref-pin" data-id="${reference.id}">
         <div class="rank">📍</div>
         <div class="mid">
           <div class="name">${reference.name}</div>
-          <div class="sub">${reference.brand} · ${reference.municipio} · ${reference.dist.toFixed(1)}km — ${refRankLine}</div>
+          <div class="sub">${reference.brand} · ${reference.municipio} · ${reference.dist.toFixed(1)}km</div>
+          <div style="font-size:10px; color:var(--cyan); font-weight:700; margin-top:3px;">${refRankLine}</div>
           ${refFillCost != null ? `<span class="full-tag" style="color:var(--text-faint);background:rgba(255,255,255,0.06);">≈${refFillCost.toFixed(2)}€ para encher ${state.tankSizeL}L</span>` : ''}
         </div>
         <div class="price-block">
