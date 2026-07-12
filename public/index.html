@@ -158,8 +158,11 @@
   .carousel-arrow.left{ left:4px; }
   .carousel-arrow.right{ right:4px; }
   .carousel-arrow:active{ transform:translateY(-50%) scale(0.9); }
-  .carousel-expand{ position:absolute; top:-26px; right:14px; background:none; border:none; color:var(--text-faint); font-size:10px; font-weight:600; cursor:pointer; padding:4px 6px; }
+  .carousel-expand{ position:absolute; top:-26px; right:14px; background:rgba(34,211,238,0.14); border:1px solid rgba(34,211,238,0.4); color:var(--cyan); font-size:11px; font-weight:700; cursor:pointer; padding:5px 11px; border-radius:999px; box-shadow:0 2px 8px rgba(0,0,0,0.35); }
+  .carousel-expand:active{ background:rgba(34,211,238,0.24); }
   .full-row{ display:flex; align-items:center; gap:10px; padding:11px 4px; border-bottom:1px solid var(--line); cursor:pointer; }
+  .full-row.ref-pin{ background:rgba(34,211,238,0.08); border:1px solid rgba(34,211,238,0.35); border-radius:12px; padding:12px 10px; margin-bottom:10px; }
+  .full-row.ref-pin .rank{ font-size:16px; }
   .full-row:active{ background:rgba(255,255,255,0.04); }
   .full-row .rank{ width:20px; text-align:center; font-size:11px; color:var(--text-faint); font-family:'JetBrains Mono',monospace; flex-shrink:0; }
   .full-row .mid{ flex:1; min-width:0; }
@@ -309,7 +312,7 @@
         <button class="carousel-expand" id="carouselExpand" aria-label="Ver lista completa">☰ Ver lista</button>
       </div>
 
-      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v25-realvalue</div>
+      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v26-refined</div>
     </div>
   </div>
 </div>
@@ -746,8 +749,8 @@
         const roundTripKm = data.distanceKm * 2;
         const roundTripL = (data.litersOneWay != null ? data.litersOneWay : (data.distanceKm * ASSUMED_L_PER_100KM/100)) * 2;
         const custoDeslocacao = roundTripKm * WEAR_COST_PER_KM + roundTripL * s.effectivePrice;
-        const totalCost = ASSUMED_TANK_L * s.effectivePrice + custoDeslocacao;
-        return { ...s, realDistanceKm: data.distanceKm, realDurationMin: data.durationMin, totalCost };
+        const totalCost = ASSUMED_TANK_L * s.effectivePrice + custoDeslocacao; // só para ordenar, nunca mostrado (depende do depósito)
+        return { ...s, realDistanceKm: data.distanceKm, realDurationMin: data.durationMin, custoDeslocacao, totalCost };
       } catch (e) {
         return null;
       }
@@ -940,11 +943,9 @@
       const delay = Math.min(idx, 8) * 0.035;
       const rankBadge = idx === 0 ? '🏆' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : '';
       const hasDiscount = s.effectivePrice < s.price - 0.0001;
-      const priceRow = mode === 'value'
-        ? `<div class="power mono" style="color:${col}; font-size:13px;">${s.totalCost.toFixed(2)}€</div>`
-        : `<div class="power mono" style="color:${col}">${s.effectivePrice.toFixed(3)}</div>`;
+      const priceRow = `<div class="power mono" style="color:${col}">${s.effectivePrice.toFixed(3)}</div>`;
       const distRow = mode === 'value'
-        ? `${s.realDistanceKm.toFixed(1)}km real · ${Math.round(s.realDurationMin)}min · ${s.effectivePrice.toFixed(3)}€/L`
+        ? `${s.realDistanceKm.toFixed(1)}km real · ${Math.round(s.realDurationMin)}min · +${s.custoDeslocacao.toFixed(2)}€ deslocação`
         : `${s.dist.toFixed(1)} km${hasDiscount ? ` · <span style="color:var(--text-faint);text-decoration:line-through;">${s.price.toFixed(3)}</span> 🎫` : ' · €/litro'}`;
       return `<div class="ev-card glass ${selected?'selected':''}" data-id="${s.id}" style="animation-delay:${delay}s;">
         <button class="fav-btn ${fav?'active':''}" data-fav-id="${s.id}">${fav?'★':'☆'}</button>
@@ -1216,34 +1217,66 @@
     });
   }
 
-  function renderFullList(){
+  async function renderFullList(){
     const f = FUELS.find(f => f.key === state.fuel);
-    document.getElementById('fullListSubtitle').textContent = `${lastList.length} postos de ${f ? f.label.toLowerCase() : ''} · mais barato primeiro`;
     const el = document.getElementById('fullList');
-    if (lastList.length === 0){
+
+    // referência: o posto mais próximo da tua localização atual, sempre em
+    // destaque no topo, para comparares tudo o resto com ele.
+    const reference = lastList.slice().sort((a,b) => a.dist - b.dist)[0];
+
+    let list, isRealCost;
+    if (state.sortMode === 'value'){
+      document.getElementById('fullListSubtitle').textContent = `A calcular rotas reais…`;
+      el.innerHTML = `<div class="empty-card glass">A calcular…</div>`;
+      list = await computeValueRankedList(lastList);
+      isRealCost = true;
+      document.getElementById('fullListSubtitle').textContent = `${list.length} postos de ${f ? f.label.toLowerCase() : ''} · melhor valor (rota real) primeiro`;
+    } else {
+      list = lastList;
+      isRealCost = false;
+      document.getElementById('fullListSubtitle').textContent = `${list.length} postos de ${f ? f.label.toLowerCase() : ''} · mais barato primeiro`;
+    }
+
+    if (list.length === 0 && !reference){
       el.innerHTML = `<div class="empty-card glass">Sem postos encontrados.</div>`;
       return;
     }
-    const reference = lastList.slice().sort((a,b) => a.dist - b.dist)[0]; // o mais próximo da tua localização atual
-    el.innerHTML = lastList.map((s, idx) => {
+
+    const refCard = reference ? `
+      <div class="full-row ref-pin" data-id="${reference.id}">
+        <div class="rank">📍</div>
+        <div class="mid">
+          <div class="name">${reference.name}</div>
+          <div class="sub">${reference.brand} · ${reference.municipio} · ${reference.dist.toFixed(1)}km — a tua opção mais próxima</div>
+        </div>
+        <div class="price-block">
+          <div class="val" style="color:${colorForPrice(reference.t)}">${reference.effectivePrice.toFixed(3)}</div>
+          <div class="unit">€/litro</div>
+        </div>
+      </div>` : '';
+
+    const rest = list.filter(s => !reference || s.id !== reference.id);
+    const rowsHtml = rest.map((s, idx) => {
       const col = colorForPrice(s.t);
       const hasDiscount = s.effectivePrice < s.price - 0.0001;
-      const isReference = reference && reference.id === s.id;
-      const qc = quickCompensa(s, reference);
-      let compensaTag = '';
-      if (isReference){
-        compensaTag = `<span class="full-tag ref">📍 mais próximo</span>`;
-      } else if (qc){
-        compensaTag = qc.compensa
-          ? `<span class="full-tag ok">✅ compensa ≈+${qc.net.toFixed(2)}€</span>`
-          : `<span class="full-tag no">⚠️ não compensa ≈−${Math.abs(qc.net).toFixed(2)}€</span>`;
+      let tag = '';
+      if (isRealCost){
+        tag = `<span class="full-tag" style="color:var(--text-faint);background:rgba(255,255,255,0.06);">${s.realDistanceKm.toFixed(1)}km real · +${s.custoDeslocacao.toFixed(2)}€ deslocação</span>`;
+      } else {
+        const qc = quickCompensa(s, reference);
+        if (qc){
+          tag = qc.compensa
+            ? `<span class="full-tag ok">✅ compensa ≈+${qc.net.toFixed(2)}€</span>`
+            : `<span class="full-tag no">⚠️ não compensa ≈−${Math.abs(qc.net).toFixed(2)}€</span>`;
+        }
       }
       return `<div class="full-row" data-id="${s.id}">
         <div class="rank">${idx+1}</div>
         <div class="mid">
           <div class="name">${s.name}</div>
           <div class="sub">${s.brand} · ${s.municipio} · ${s.dist.toFixed(1)}km</div>
-          ${compensaTag}
+          ${tag}
         </div>
         <div class="price-block">
           <div class="val" style="color:${col}">${s.effectivePrice.toFixed(3)}</div>
@@ -1252,10 +1285,12 @@
       </div>`;
     }).join('');
 
+    el.innerHTML = refCard + rowsHtml;
+
     el.querySelectorAll('.full-row').forEach(row => {
       row.addEventListener('click', () => {
         const id = row.getAttribute('data-id');
-        const s = lastList.find(x => x.id === id);
+        const s = lastList.find(x => x.id === id) || (reference && reference.id === id ? reference : null);
         if (s){
           fullListBackdrop.classList.remove('open');
           selectStation(s);
