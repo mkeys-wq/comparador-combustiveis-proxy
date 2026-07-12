@@ -285,7 +285,7 @@
         <button class="carousel-expand" id="carouselExpand" aria-label="Ver lista completa">☰ Ver lista</button>
       </div>
 
-      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v15-rawtest</div>
+      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v16-rereadfix</div>
     </div>
   </div>
 </div>
@@ -1080,15 +1080,21 @@
   let searchToken = 0;
 
   function handleSearchInput(){
-    const q = document.getElementById('townSearch').value.trim();
     clearTimeout(searchDebounce);
-    if (q.length < 2){
+    const qNow = document.getElementById('townSearch').value.trim();
+    if (qNow.length < 2){
       renderSuggestions();
       return;
     }
     document.getElementById('townListLabel').textContent = 'Resultados';
     document.getElementById('searchStatus').textContent = 'A procurar…';
-    searchDebounce = setTimeout(() => runGeocodeSearch(q), 400);
+    searchDebounce = setTimeout(() => {
+      // relê o valor aqui, mesmo em cima da hora — nunca confiar no que foi
+      // capturado 400ms antes, para nunca pesquisar um texto incompleto
+      const qFinal = document.getElementById('townSearch').value.trim();
+      if (qFinal.length < 2) return;
+      runGeocodeSearch(qFinal);
+    }, 400);
   }
   const townSearchInput = document.getElementById('townSearch');
   townSearchInput.addEventListener('input', handleSearchInput);
