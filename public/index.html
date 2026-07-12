@@ -166,6 +166,12 @@
   .full-row .price-block{ text-align:right; flex-shrink:0; }
   .full-row .price-block .val{ font-family:'JetBrains Mono',monospace; font-size:14px; font-weight:700; }
   .full-row .price-block .unit{ font-size:8.5px; color:var(--text-faint); }
+  .discount-row{ display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--line); }
+  .discount-row .brand-name{ flex:1; font-size:13px; font-weight:600; }
+  .discount-row input{ width:60px; background:rgba(255,255,255,0.06); border:1px solid var(--line); border-radius:8px; padding:6px 8px; color:var(--text); font-size:13px; text-align:right; outline:none; }
+  .discount-row input:focus{ border-color:var(--cyan); }
+  .discount-row .unit-lbl{ font-size:11px; color:var(--text-faint); width:34px; }
+  .price-effective{ font-size:9.5px; color:#34D399; font-weight:700; margin-top:1px; }
   .carousel::-webkit-scrollbar{ display:none; }
   .ev-card{ scroll-snap-align:start; flex:0 0 auto; width:150px; border-radius:16px; padding:10px 11px; cursor:pointer; position:relative; animation:cardIn .28s ease backwards; transition:transform .15s ease; }
   .ev-card:active{ transform:scale(0.96); }
@@ -239,6 +245,7 @@
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
           <span id="filterTriggerLabel">Filtros</span>
         </button>
+        <button class="icon-pill glass" id="discountBtn" title="Os teus descontos">🎫</button>
         <button class="icon-pill glass" id="infoBtn">ⓘ</button>
       </div>
 
@@ -246,6 +253,7 @@
         <div class="info-row"><b>⛽ Dados</b> — reais, oficiais, atualizados diariamente pela DGEG/ERSE.</div>
         <div class="info-row"><b>🗺️ Rota</b> — distância e tempo reais por estrada até ao posto selecionado.</div>
         <div class="info-row"><b>✅ Compensa?</b> — compara o que poupas (depósito de 45L) com o custo de lá chegar (ida e volta, com a altitude real do percurso): combustível + um valor assumido de desgaste (pneus, travões, óleo — 0,04€/km), face ao teu posto mais próximo. Assume um carro médio — não é o consumo exato do teu.</div>
+        <div class="info-row"><b>🎫 Descontos</b> — configura os teus (Continente, COMBINA, etc.) no botão 🎫 do topo; aplicam-se aos preços e comparações.</div>
         <div class="info-row"><b>★ Favoritos</b> — guardados neste telemóvel.</div>
       </div>
 
@@ -288,7 +296,7 @@
         <button class="carousel-expand" id="carouselExpand" aria-label="Ver lista completa">☰ Ver lista</button>
       </div>
 
-      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v21-wear</div>
+      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v22-discounts</div>
     </div>
   </div>
 </div>
@@ -322,6 +330,20 @@
     </div>
     <div class="eyebrow" id="fullListSubtitle">A carregar…</div>
     <div id="fullList"></div>
+  </div>
+</div>
+
+<div class="sheet-backdrop" id="discountBackdrop">
+  <div class="sheet">
+    <div class="sheet-head">
+      <div class="sheet-title display">Os teus descontos</div>
+      <button class="sheet-close" id="discountClose">✕</button>
+    </div>
+    <div style="font-size:11px; color:var(--text-muted); line-height:1.5; margin-bottom:12px;">
+      Não temos forma de saber automaticamente que cartões/planos tens (Continente, COMBINA, etc. mudam por pessoa e por campanha) — diz-nos tu quanto poupas por litro em cada marca, e aplicamos isso nos preços e nas comparações.
+    </div>
+    <div id="discountList"></div>
+    <div style="font-size:9.5px; color:var(--text-faint); margin-top:10px;">Guardado só neste telemóvel. Os preços oficiais da DGEG continuam sempre visíveis, sem alteração.</div>
   </div>
 </div>
 
@@ -499,6 +521,26 @@
   const markersById = {};
   let hudLine = null;
 
+  // ---------- descontos pessoais (guardados no telemóvel, localStorage) ----------
+  const DISCOUNT_KEY = 'combustivelmais_descontos';
+  function getDiscounts(){
+    try { return JSON.parse(localStorage.getItem(DISCOUNT_KEY) || '{}'); }
+    catch (e) { return {}; }
+  }
+  function saveDiscounts(obj){
+    try { localStorage.setItem(DISCOUNT_KEY, JSON.stringify(obj)); } catch (e) {}
+  }
+  function normalizeBrand(brand){
+    return (brand || '').trim().toUpperCase();
+  }
+  function getEffectivePrice(station){
+    const discounts = getDiscounts();
+    const key = normalizeBrand(station.brand);
+    const centsOff = discounts[key];
+    if (!centsOff) return station.price;
+    return Math.max(0, station.price - centsOff/100);
+  }
+
   // ---------- data ----------
   let rawStations = [];
   let lastFetchKey = '';
@@ -545,16 +587,16 @@
     if (state.favoritesOnly){
       const favs = getFavorites().filter(f => f.fuel === state.fuel)
         .map(f => ({ ...f, dist: distanceKm(state.center.lat, state.center.lon, f.lat, f.lon) }));
-      favs.sort((a,b) => a.price - b.price);
       list = favs;
     } else {
       const stations = await fetchStations();
       list = applyFilters(stations);
-      list.sort((a,b) => a.price - b.price);
     }
-    const min = list.length ? list[0].price : 0;
-    const max = list.length ? list[list.length-1].price : 0;
-    return list.map(s => ({ ...s, t: max===min ? 0 : (s.price-min)/(max-min) }));
+    list = list.map(s => ({ ...s, effectivePrice: getEffectivePrice(s) }));
+    list.sort((a,b) => a.effectivePrice - b.effectivePrice);
+    const min = list.length ? list[0].effectivePrice : 0;
+    const max = list.length ? list[list.length-1].effectivePrice : 0;
+    return list.map(s => ({ ...s, t: max===min ? 0 : (s.effectivePrice-min)/(max-min) }));
   }
 
   // ---------- selection + distance HUD ----------
@@ -577,7 +619,10 @@
     const hud = document.getElementById('distanceHud');
 
     document.getElementById('hudName').textContent = s.name;
-    document.getElementById('hudSub').textContent = `${s.brand} · ${s.municipio}`;
+    const hasDiscount = s.effectivePrice < s.price - 0.0001;
+    document.getElementById('hudSub').innerHTML = hasDiscount
+      ? `${s.brand} · ${s.municipio} · <span style="color:#34D399;font-weight:700;">${s.effectivePrice.toFixed(3)}€</span> <span style="text-decoration:line-through;color:var(--text-faint);">${s.price.toFixed(3)}€</span> 🎫`
+      : `${s.brand} · ${s.municipio} · ${s.price.toFixed(3)}€`;
     const tagsEl = document.getElementById('hudTags');
     const gmapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lon}&travelmode=driving`;
     const wazeUrl = `https://waze.com/ul?ll=${s.lat},${s.lon}&navigate=yes`;
@@ -630,28 +675,31 @@
       if (data.litersOneWay != null){
         // "nearest" = o posto mais próximo da TUA localização (não do selecionado)
         // — s.dist já vem do servidor calculado a partir do teu ponto de partida.
+        // Comparação sempre com o preço efetivo (já com o teu desconto aplicado).
         const nearestToUser = rawStations
           .filter(x => x.id !== s.id)
+          .map(x => ({ ...x, effectivePrice: getEffectivePrice(x) }))
           .sort((a,b) => a.dist - b.dist)[0];
         const nearest = nearestToUser;
+        const sPrice = s.effectivePrice != null ? s.effectivePrice : getEffectivePrice(s);
 
-        if (nearest && nearest.price > s.price){
+        if (nearest && nearest.effectivePrice > sPrice){
           const roundTripKm = data.distanceKm * 2;
           const roundTripL = data.litersOneWay * 2;
-          const custoCombustivel = roundTripL * s.price;
+          const custoCombustivel = roundTripL * sPrice;
           const custoDesgaste = roundTripKm * WEAR_COST_PER_KM;
           const custoTotal = custoCombustivel + custoDesgaste;
-          const poupancaBruta = (nearest.price - s.price) * ASSUMED_TANK_L;
+          const poupancaBruta = (nearest.effectivePrice - sPrice) * ASSUMED_TANK_L;
           const net = poupancaBruta - custoTotal;
           if (net > 0){
             consumoEl.innerHTML = `<div style="font-size:12.5px;"><b style="color:#34D399">✅ Compensa: ganhas ≈${net.toFixed(2)}€</b></div>
-              <div style="font-size:9.5px; color:var(--text-faint); margin-top:2px;">poupança ${poupancaBruta.toFixed(2)}€ − viagem ${custoTotal.toFixed(2)}€ (combustível+desgaste) · face a ${nearest.name} (${nearest.dist.toFixed(1)}km)</div>`;
+              <div style="font-size:9.5px; color:var(--text-faint); margin-top:2px;">poupança ${poupancaBruta.toFixed(2)}€ − viagem ${custoTotal.toFixed(2)}€ (combustível+desgaste) · face a ${nearest.name} (${nearest.dist.toFixed(1)}km, ${nearest.effectivePrice.toFixed(3)}€)</div>`;
           } else {
             consumoEl.innerHTML = `<div style="font-size:12.5px;"><b style="color:#F87171">⚠️ Não compensa: perdes ≈${Math.abs(net).toFixed(2)}€</b></div>
-              <div style="font-size:9.5px; color:var(--text-faint); margin-top:2px;">poupança ${poupancaBruta.toFixed(2)}€ − viagem ${custoTotal.toFixed(2)}€ (combustível+desgaste) · face a ${nearest.name} (${nearest.dist.toFixed(1)}km)</div>`;
+              <div style="font-size:9.5px; color:var(--text-faint); margin-top:2px;">poupança ${poupancaBruta.toFixed(2)}€ − viagem ${custoTotal.toFixed(2)}€ (combustível+desgaste) · face a ${nearest.name} (${nearest.dist.toFixed(1)}km, ${nearest.effectivePrice.toFixed(3)}€)</div>`;
           }
         } else if (nearest) {
-          consumoEl.innerHTML = `⛽ Opção igual ou mais barata mais perto: <b>${nearest.name}</b> (${nearest.dist.toFixed(1)}km, ${nearest.price.toFixed(3)}€).`;
+          consumoEl.innerHTML = `⛽ Opção igual ou mais barata mais perto: <b>${nearest.name}</b> (${nearest.dist.toFixed(1)}km, ${nearest.effectivePrice.toFixed(3)}€).`;
         } else {
           consumoEl.textContent = '';
         }
@@ -694,7 +742,7 @@
     list.forEach(s => {
       const col = colorForPrice(s.t);
       const selected = state.selectedId === s.id;
-      const priceLabel = s.price.toFixed(3);
+      const priceLabel = s.effectivePrice.toFixed(3);
       let icon;
       if (selected){
         const w = 16 + priceLabel.length * 6.4;
@@ -784,15 +832,16 @@
       const fav = isFavorite(s.id);
       const delay = Math.min(idx, 8) * 0.035;
       const rankBadge = idx === 0 ? '🏆' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : '';
+      const hasDiscount = s.effectivePrice < s.price - 0.0001;
       return `<div class="ev-card glass ${selected?'selected':''}" data-id="${s.id}" style="animation-delay:${delay}s;">
         <button class="fav-btn ${fav?'active':''}" data-fav-id="${s.id}">${fav?'★':'☆'}</button>
         ${rankBadge ? `<div class="rank-badge">${rankBadge}</div>` : ''}
         <div class="top-row">
           <div class="name">${s.name}</div>
-          <div class="power mono" style="color:${col}">${s.price.toFixed(3)}</div>
+          <div class="power mono" style="color:${col}">${s.effectivePrice.toFixed(3)}</div>
         </div>
         <div class="sub">${s.brand} · ${s.municipio}</div>
-        <div class="dist">${s.dist.toFixed(1)} km · €/litro</div>
+        <div class="dist">${s.dist.toFixed(1)} km${hasDiscount ? ` · <span style="color:var(--text-faint);text-decoration:line-through;">${s.price.toFixed(3)}</span> 🎫` : ' · €/litro'}</div>
       </div>`;
     }).join('');
     el.querySelectorAll('.ev-card').forEach(card => {
@@ -985,6 +1034,41 @@
   document.getElementById('fullListClose').addEventListener('click', () => fullListBackdrop.classList.remove('open'));
   fullListBackdrop.addEventListener('click', (e) => { if (e.target === fullListBackdrop) fullListBackdrop.classList.remove('open'); });
 
+  // ---------- descontos ----------
+  const discountBackdrop = document.getElementById('discountBackdrop');
+  document.getElementById('discountBtn').addEventListener('click', () => {
+    discountBackdrop.classList.add('open');
+    renderDiscountList();
+  });
+  document.getElementById('discountClose').addEventListener('click', () => discountBackdrop.classList.remove('open'));
+  discountBackdrop.addEventListener('click', (e) => { if (e.target === discountBackdrop) discountBackdrop.classList.remove('open'); });
+
+  function renderDiscountList(){
+    const el = document.getElementById('discountList');
+    const brands = [...new Set(rawStations.map(s => normalizeBrand(s.brand)).filter(Boolean))].sort();
+    if (brands.length === 0){
+      el.innerHTML = `<div style="font-size:12px;color:var(--text-muted);padding:10px 4px;">Ainda não há postos carregados — abre a app perto de ti primeiro, para vermos as marcas à tua volta.</div>`;
+      return;
+    }
+    const discounts = getDiscounts();
+    el.innerHTML = brands.map(b => `
+      <div class="discount-row">
+        <div class="brand-name">${b}</div>
+        <input type="number" min="0" max="99" step="1" placeholder="0" data-brand="${b}" value="${discounts[b] || ''}" />
+        <div class="unit-lbl">cênt/L</div>
+      </div>`).join('');
+    el.querySelectorAll('input').forEach(inp => {
+      inp.addEventListener('input', () => {
+        const v = parseFloat(inp.value);
+        const d = getDiscounts();
+        const brand = inp.getAttribute('data-brand');
+        if (Number.isFinite(v) && v > 0) d[brand] = v; else delete d[brand];
+        saveDiscounts(d);
+        renderAll();
+      });
+    });
+  }
+
   function renderFullList(){
     const f = FUELS.find(f => f.key === state.fuel);
     document.getElementById('fullListSubtitle').textContent = `${lastList.length} postos de ${f ? f.label.toLowerCase() : ''} · mais barato primeiro`;
@@ -995,6 +1079,7 @@
     }
     el.innerHTML = lastList.map((s, idx) => {
       const col = colorForPrice(s.t);
+      const hasDiscount = s.effectivePrice < s.price - 0.0001;
       return `<div class="full-row" data-id="${s.id}">
         <div class="rank">${idx+1}</div>
         <div class="mid">
@@ -1002,8 +1087,8 @@
           <div class="sub">${s.brand} · ${s.municipio} · ${s.dist.toFixed(1)}km</div>
         </div>
         <div class="price-block">
-          <div class="val" style="color:${col}">${s.price.toFixed(3)}</div>
-          <div class="unit">€/litro</div>
+          <div class="val" style="color:${col}">${s.effectivePrice.toFixed(3)}</div>
+          <div class="unit">${hasDiscount ? '🎫 c/ desconto' : '€/litro'}</div>
         </div>
       </div>`;
     }).join('');
