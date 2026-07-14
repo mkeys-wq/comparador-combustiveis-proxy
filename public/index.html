@@ -72,7 +72,7 @@
   #filterTrigger.active{ color:var(--cyan) !important; border-color:rgba(34,211,238,0.4); }
   #filterTrigger.active span{ color:var(--cyan); }
 
-  .info-box{ position:absolute; top:64px; left:14px; right:14px; z-index:499; font-size:11.5px; line-height:1.5; color:var(--text-muted); border-radius:12px; padding:10px 12px; opacity:0; transform:translateY(-6px) scale(0.98); pointer-events:none; transition:opacity .18s ease, transform .18s ease; }
+  .info-box{ position:absolute; top:64px; left:14px; right:14px; z-index:850; font-size:11.5px; line-height:1.5; color:var(--text-muted); border-radius:12px; padding:10px 12px; opacity:0; transform:translateY(-6px) scale(0.98); pointer-events:none; transition:opacity .18s ease, transform .18s ease; max-height:75vh; overflow-y:auto; }
   .info-box.open{ opacity:1; transform:translateY(0) scale(1); pointer-events:auto; }
   .info-row{ padding:4px 0; border-top:1px solid rgba(255,255,255,0.06); }
   .info-row:first-child{ border-top:none; padding-top:0; }
@@ -80,7 +80,7 @@
   .info-box b{ color:var(--cyan); font-weight:600; }
 
   /* filter popover panel */
-  .filter-panel{ position:absolute; top:64px; left:14px; right:14px; z-index:499; border-radius:16px; padding:12px; flex-direction:column; gap:10px; opacity:0; transform:translateY(-6px) scale(0.98); pointer-events:none; transition:opacity .18s ease, transform .18s ease; display:flex; }
+  .filter-panel{ position:absolute; top:64px; left:14px; right:14px; z-index:850; border-radius:16px; padding:12px; flex-direction:column; gap:10px; opacity:0; transform:translateY(-6px) scale(0.98); pointer-events:none; transition:opacity .18s ease, transform .18s ease; display:flex; max-height:75vh; overflow-y:auto; }
   .filter-panel.open{ opacity:1; transform:translateY(0) scale(1); pointer-events:auto; }
   .filter-row{ display:flex; flex-wrap:wrap; gap:6px; }
   .autonomy-row{ display:flex; align-items:center; gap:6px; background:rgba(255,255,255,0.03); border:1px solid var(--line); border-radius:12px; padding:8px 10px; }
@@ -333,7 +333,7 @@
       <button class="carousel-arrow left" id="carouselArrowLeft" aria-label="Deslizar para a esquerda">‹</button>
       <button class="carousel-arrow right" id="carouselArrowRight" aria-label="Deslizar para a direita">›</button>
 
-      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v49-rootcause</div>
+      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v50-infozfix</div>
     </div>
   </div>
 </div>
