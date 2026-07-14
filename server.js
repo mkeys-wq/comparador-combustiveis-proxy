@@ -152,6 +152,54 @@ app.get('/api/health', (req, res) => {
   res.json({ ok: true, cachedFuels: Object.keys(cache) });
 });
 
+// ---------------- Tendência do petróleo Brent (não é previsão de combustível) ----------------
+// Fonte gratuita, sem chave — dá-nos o preço atual do barril. Guardamos um
+// histórico simples em memória (reinicia se o servidor reiniciar) para termos
+// uma tendência real de "há uns dias para cá", não inventada.
+let brentCache = null;
+const BRENT_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6h
+const brentHistory = []; // [{price, at}], mantemos até 14 dias
+
+app.get('/api/brent-trend', async (req, res) => {
+  try {
+    const now = Date.now();
+    if (brentCache && now - brentCache.fetchedAt < BRENT_CACHE_TTL_MS) {
+      return res.json(brentCache.data);
+    }
+
+    const r = await fetch('https://api.oilpriceapi.com/v1/demo/prices', {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!r.ok) throw new Error(`oilpriceapi devolveu ${r.status} ${r.statusText}`);
+    const raw = await r.json();
+
+    // a resposta pode vir em formas ligeiramente diferentes consoante o
+    // endpoint — tentamos extrair o preço de forma tolerante
+    const price = raw?.data?.price ?? raw?.price ?? raw?.data?.[0]?.price ?? null;
+    if (price == null || !Number.isFinite(Number(price))) {
+      throw new Error('Não foi possível interpretar o preço do Brent na resposta.');
+    }
+    const priceNum = Number(price);
+
+    brentHistory.push({ price: priceNum, at: now });
+    // limpa entradas com mais de 14 dias
+    while (brentHistory.length && now - brentHistory[0].at > 14 * 24 * 60 * 60 * 1000) {
+      brentHistory.shift();
+    }
+
+    const oldest = brentHistory[0];
+    const trendPct = oldest && oldest.price ? ((priceNum - oldest.price) / oldest.price) * 100 : null;
+    const trendDays = oldest ? Math.round((now - oldest.at) / (1000*60*60*24)) : 0;
+
+    const data = { priceUsd: priceNum, trendPct, trendDays };
+    brentCache = { data, fetchedAt: now };
+    res.json(data);
+  } catch (err) {
+    console.error(err);
+    res.status(502).json({ error: 'Falha ao obter tendência do Brent', detail: String(err.message || err) });
+  }
+});
+
 // ---------------- Pesquisa de localidades (qualquer sítio em Portugal) ----------------
 const geocodeCache = {};
 const GEOCODE_CACHE_TTL_MS = 60 * 60 * 1000; // 1h
