@@ -333,7 +333,7 @@
       <button class="carousel-arrow left" id="carouselArrowLeft" aria-label="Deslizar para a esquerda">‹</button>
       <button class="carousel-arrow right" id="carouselArrowRight" aria-label="Deslizar para a direita">›</button>
 
-      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v48-layerfix</div>
+      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v49-rootcause</div>
     </div>
   </div>
 </div>
@@ -1172,12 +1172,19 @@
     carouselDragState.moved = false;
     carouselDragState.startX = e.clientX;
     carouselDragState.startScroll = carouselEl.scrollLeft;
-    carouselEl.setPointerCapture(e.pointerId);
+    carouselDragState.pointerId = e.pointerId;
+    // Nota: NÃO capturamos o ponteiro aqui — só quando confirmarmos que é
+    // mesmo um arrasto (ver pointermove). Capturar logo ao primeiro toque
+    // desviava o "click" final para o carrossel inteiro, em vez do elemento
+    // exato tocado (cartão, etiqueta, etc.) — era a causa do bug.
   });
   carouselEl.addEventListener('pointermove', (e) => {
     if (!carouselDragState.active) return;
     const dx = e.clientX - carouselDragState.startX;
-    if (Math.abs(dx) > DRAG_THRESHOLD) carouselDragState.moved = true;
+    if (Math.abs(dx) > DRAG_THRESHOLD && !carouselDragState.moved){
+      carouselDragState.moved = true;
+      try { carouselEl.setPointerCapture(carouselDragState.pointerId); } catch (err) {}
+    }
     if (carouselDragState.moved){
       carouselEl.scrollLeft = carouselDragState.startScroll - dx;
     }
@@ -1555,24 +1562,6 @@
     }
   }
 
-  // DEBUG temporário: mostra no topo da app qual foi o último elemento tocado
-  // (para percebermos, de vez, porque é que a etiqueta não está a responder)
-  document.addEventListener('click', (e) => {
-    let el2 = e.target;
-    const path = [];
-    for (let i = 0; i < 4 && el2; i++){
-      path.push(el2.className ? `${el2.tagName.toLowerCase()}.${String(el2.className).split(' ').join('.')}` : el2.tagName.toLowerCase());
-      el2 = el2.parentElement;
-    }
-    let dbg = document.getElementById('clickDebug');
-    if (!dbg){
-      dbg = document.createElement('div');
-      dbg.id = 'clickDebug';
-      dbg.style.cssText = 'position:fixed; top:60px; left:8px; right:8px; z-index:99999; background:#000; color:#0f0; font-size:9px; padding:6px; border-radius:8px; font-family:monospace; word-break:break-all; pointer-events:none;';
-      document.body.appendChild(dbg);
-    }
-    dbg.textContent = '🔧 CLIQUE: ' + path.join(' ← ');
-  }, true);
 
   // ---------- boot ----------
   renderFilterChips();
