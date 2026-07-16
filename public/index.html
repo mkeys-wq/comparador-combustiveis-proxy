@@ -333,7 +333,7 @@
       <button class="carousel-arrow left" id="carouselArrowLeft" aria-label="Deslizar para a esquerda">‹</button>
       <button class="carousel-arrow right" id="carouselArrowRight" aria-label="Deslizar para a direita">›</button>
 
-      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v53-pervehicle</div>
+      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v55-voucherbadge</div>
     </div>
   </div>
 </div>
@@ -383,7 +383,7 @@
       <button class="sheet-close" id="discountClose">✕</button>
     </div>
     <div style="font-size:11px; color:var(--text-muted); line-height:1.5; margin-bottom:12px;">
-      Não temos forma de saber automaticamente que cartões/planos tens (Continente, COMBINA, etc. mudam por pessoa e por campanha) — diz-nos tu quanto poupas por litro em cada marca, e aplicamos isso nos preços e nas comparações.
+      Não temos forma de saber automaticamente que cartões/planos tens (Continente, COMBINA, etc. mudam por pessoa e por campanha) — diz-nos tu quanto poupas por litro em cada marca, e/ou se tens algum vale de valor fixo (ex: 5€), e aplicamos isso nos preços e nas comparações. O vale conta-se uma vez por visita — apaga-o quando o gastares.
     </div>
     <div id="discountList"></div>
     <div style="font-size:9.5px; color:var(--text-faint); margin-top:10px;">Guardado só neste telemóvel. Os preços oficiais da DGEG continuam sempre visíveis, sem alteração.</div>
@@ -606,6 +606,12 @@
     if (!centsOff) return station.price;
     return Math.max(0, station.price - centsOff/100);
   }
+  function getVoucherAmount(station){
+    const discounts = getDiscounts();
+    const key = normalizeBrand(station.brand);
+    const entry = discounts[key];
+    return entry && entry.voucher ? entry.voucher : 0;
+  }
 
   function relativeTimeAgo(timestamp){
     const days = Math.floor((Date.now() - timestamp) / (1000*60*60*24));
@@ -703,7 +709,7 @@
     const hud = document.getElementById('distanceHud');
 
     document.getElementById('hudName').textContent = s.name;
-    const hasDiscount = s.effectivePrice < s.price - 0.0001;
+    const hasDiscount = s.effectivePrice < s.price - 0.0001 || getVoucherAmount(s) > 0;
     document.getElementById('hudSub').innerHTML = hasDiscount
       ? `${s.brand} · ${s.municipio} · <span style="color:#34D399;font-weight:700;">${s.effectivePrice.toFixed(3)}€</span> <span style="text-decoration:line-through;color:var(--text-faint);">${s.price.toFixed(3)}€</span> 🎫`
       : `${s.brand} · ${s.municipio} · ${s.price.toFixed(3)}€`;
@@ -834,8 +840,9 @@
         const roundTripKm = data.distanceKm * 2;
         const roundTripL = (data.litersOneWay != null ? data.litersOneWay : (data.distanceKm * state.consumption/100)) * 2;
         const custoDeslocacao = roundTripKm * state.wearPerKm + roundTripL * s.effectivePrice;
-        const totalCost = state.tankSizeL * s.effectivePrice + custoDeslocacao;
-        return { ...s, realDistanceKm: data.distanceKm, realDurationMin: data.durationMin, custoDeslocacao, totalCost };
+        const voucher = getVoucherAmount(s);
+        const totalCost = Math.max(0, state.tankSizeL * s.effectivePrice + custoDeslocacao - voucher);
+        return { ...s, realDistanceKm: data.distanceKm, realDurationMin: data.durationMin, custoDeslocacao, totalCost, voucher };
       } catch (e) {
         return null;
       }
@@ -874,21 +881,23 @@
           .sort((a,b) => a.dist - b.dist)[0];
         const nearest = nearestToUser;
         const sPrice = s.effectivePrice != null ? s.effectivePrice : getEffectivePrice(s);
+        const voucher = getVoucherAmount(s);
 
-        if (nearest && nearest.effectivePrice > sPrice){
+        if (nearest && (nearest.effectivePrice > sPrice || voucher > 0)){
           const roundTripKm = data.distanceKm * 2;
           const roundTripL = data.litersOneWay * 2;
           const custoCombustivel = roundTripL * sPrice;
           const custoDesgaste = roundTripKm * state.wearPerKm;
           const custoTotal = custoCombustivel + custoDesgaste;
           const poupancaBruta = (nearest.effectivePrice - sPrice) * state.tankSizeL;
-          const net = poupancaBruta - custoTotal;
+          const net = poupancaBruta - custoTotal + voucher;
+          const voucherTxt = voucher > 0 ? ` + vale ${voucher.toFixed(2)}€` : '';
           if (net > 0){
             consumoEl.innerHTML = `<div style="font-size:12.5px;"><b style="color:#34D399">✅ Compensa: ganhas ≈${net.toFixed(2)}€</b></div>
-              <div style="font-size:9.5px; color:var(--text-faint); margin-top:2px;">poupança ${poupancaBruta.toFixed(2)}€ − viagem ${custoTotal.toFixed(2)}€ (combustível+desgaste) · face a ${nearest.name} (${nearest.dist.toFixed(1)}km, ${nearest.effectivePrice.toFixed(3)}€)</div>`;
+              <div style="font-size:9.5px; color:var(--text-faint); margin-top:2px;">poupança ${poupancaBruta.toFixed(2)}€${voucherTxt} − viagem ${custoTotal.toFixed(2)}€ (combustível+desgaste) · face a ${nearest.name} (${nearest.dist.toFixed(1)}km, ${nearest.effectivePrice.toFixed(3)}€)</div>`;
           } else {
             consumoEl.innerHTML = `<div style="font-size:12.5px;"><b style="color:#F87171">⚠️ Não compensa: perdes ≈${Math.abs(net).toFixed(2)}€</b></div>
-              <div style="font-size:9.5px; color:var(--text-faint); margin-top:2px;">poupança ${poupancaBruta.toFixed(2)}€ − viagem ${custoTotal.toFixed(2)}€ (combustível+desgaste) · face a ${nearest.name} (${nearest.dist.toFixed(1)}km, ${nearest.effectivePrice.toFixed(3)}€)</div>`;
+              <div style="font-size:9.5px; color:var(--text-faint); margin-top:2px;">poupança ${poupancaBruta.toFixed(2)}€${voucherTxt} − viagem ${custoTotal.toFixed(2)}€ (combustível+desgaste) · face a ${nearest.name} (${nearest.dist.toFixed(1)}km, ${nearest.effectivePrice.toFixed(3)}€)</div>`;
           }
         } else if (nearest) {
           consumoEl.innerHTML = `⛽ Opção igual ou mais barata mais perto: <b>${nearest.name}</b> (${nearest.dist.toFixed(1)}km, ${nearest.effectivePrice.toFixed(3)}€).`;
@@ -1028,7 +1037,7 @@
       const fav = isFavorite(s.id);
       const delay = Math.min(idx, 8) * 0.035;
       const rankBadge = idx === 0 ? '🏆' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : '';
-      const hasDiscount = s.effectivePrice < s.price - 0.0001;
+      const hasDiscount = s.effectivePrice < s.price - 0.0001 || getVoucherAmount(s) > 0;
       const priceRow = `<div class="power mono" style="color:${col}">${s.effectivePrice.toFixed(3)}</div>`;
       let distRow, compensaRow = '';
       if (mode === 'value'){
@@ -1307,15 +1316,22 @@
     const discounts = getDiscounts();
     el.innerHTML = brands.map(b => {
       const entry = discounts[b];
-      const stale = entry && (Date.now() - entry.updatedAt) > 30*24*60*60*1000; // >30 dias
-      const ageLine = entry
+      const stale = entry && entry.updatedAt && (Date.now() - entry.updatedAt) > 30*24*60*60*1000; // >30 dias
+      const ageLine = entry && entry.updatedAt
         ? `<div style="font-size:9px; color:${stale?'#FBBF24':'var(--text-faint)'}; margin-top:2px;">${stale ? '⚠️ definido ' : 'definido '}${relativeTimeAgo(entry.updatedAt)}${stale ? ' — ainda está certo?' : ''}</div>`
         : '';
       return `
-      <div class="discount-row" style="align-items:flex-start;">
-        <div class="brand-name">${b}${ageLine}</div>
-        <input type="number" min="0" max="99" step="1" placeholder="0" data-brand="${b}" value="${entry ? entry.value : ''}" />
-        <div class="unit-lbl">cênt/L</div>
+      <div class="discount-row" style="align-items:flex-start; flex-wrap:wrap; row-gap:6px;">
+        <div class="brand-name" style="flex-basis:100%;">${b}${ageLine}</div>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <input type="number" min="0" max="99" step="1" placeholder="0" data-brand="${b}" data-field="value" value="${entry && entry.value ? entry.value : ''}" />
+          <span class="unit-lbl">cênt/L</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:6px; margin-left:auto;">
+          <span class="unit-lbl">vale</span>
+          <input type="number" min="0" max="999" step="0.5" placeholder="0" data-brand="${b}" data-field="voucher" value="${entry && entry.voucher ? entry.voucher : ''}" />
+          <span class="unit-lbl">€</span>
+        </div>
       </div>`;
     }).join('');
     el.querySelectorAll('input').forEach(inp => {
@@ -1323,8 +1339,15 @@
         const v = parseFloat(inp.value);
         const d = getDiscounts();
         const brand = inp.getAttribute('data-brand');
-        if (Number.isFinite(v) && v > 0) d[brand] = { value: v, updatedAt: Date.now() };
-        else delete d[brand];
+        const field = inp.getAttribute('data-field');
+        const existing = d[brand] || {};
+        const updated = { ...existing };
+        if (Number.isFinite(v) && v > 0) updated[field] = v;
+        else delete updated[field];
+        updated.updatedAt = Date.now();
+        // se não sobrar nenhum valor (nem desconto nem vale), remove a marca de vez
+        if (!updated.value && !updated.voucher) delete d[brand];
+        else d[brand] = updated;
         saveDiscounts(d);
         updateStaleDiscountBadge();
         invalidateValueCache();
@@ -1363,7 +1386,8 @@
       return;
     }
 
-    const refFillCost = reference ? (reference.effectivePrice * state.tankSizeL) : null;
+    const refVoucher = reference ? getVoucherAmount(reference) : 0;
+    const refFillCost = reference ? Math.max(0, reference.effectivePrice * state.tankSizeL - refVoucher) : null;
     const refRankLine = isRealCost
       ? (refRank
           ? (refRank === 1 ? '🏆 é o próprio nº1 em melhor valor' : `📊 seria o nº${refRank} em melhor valor a abastecer`)
@@ -1387,14 +1411,15 @@
     const rest = list.filter(s => !reference || s.id !== reference.id);
     const rowsHtml = rest.map((s, idx) => {
       const col = colorForPrice(s.t);
-      const hasDiscount = s.effectivePrice < s.price - 0.0001;
+      const hasDiscount = s.effectivePrice < s.price - 0.0001 || getVoucherAmount(s) > 0;
       let tag = '', subLine;
       if (isRealCost){
         subLine = `${s.brand} · ${s.municipio} · ${s.realDistanceKm.toFixed(1)}km real · ${Math.round(s.realDurationMin)}min`;
-        const fillCost = s.effectivePrice * state.tankSizeL;
+        const voucher = getVoucherAmount(s);
+        const fillCost = Math.max(0, s.effectivePrice * state.tankSizeL - voucher);
         if (reference && reference.id !== s.id){
           const poupanca = (reference.effectivePrice - s.effectivePrice) * state.tankSizeL;
-          const net = poupanca - s.custoDeslocacao;
+          const net = poupanca - s.custoDeslocacao + voucher;
           tag = (net > 0
             ? `<span class="full-tag ok">✅ compensa ≈+${net.toFixed(2)}€</span>`
             : `<span class="full-tag no">⚠️ não compensa ≈−${Math.abs(net).toFixed(2)}€</span>`)
