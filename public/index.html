@@ -112,17 +112,16 @@
   .chip.active-neutral{ border:2px solid var(--cyan); background:rgba(34,211,238,0.22); color:var(--cyan); font-weight:800; }
   .chip.active-free{ border:2px solid #34D399; background:rgba(52,211,153,0.22); color:#34D399; font-weight:800; }
 
-  /* zoom control */
-  .zoom-control{ position:absolute; right:14px; top:170px; width:44px; border-radius:16px; display:flex; flex-direction:column; align-items:center; z-index:400; overflow:hidden; }
-  .zoom-btn{ width:44px; height:44px; border:none; background:transparent; color:var(--text); font-size:20px; font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+  /* barra de ferramentas do mapa (zoom, recentrar, vista simplificada) */
+  .map-toolbar{ position:absolute; right:14px; top:170px; width:44px; border-radius:16px; display:flex; flex-direction:column; align-items:center; z-index:400; overflow:hidden; }
+  .zoom-btn{ width:44px; height:42px; border:none; background:transparent; color:var(--text); font-size:18px; font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background .1s ease, color .1s ease; }
   .zoom-btn:active{ background:rgba(34,211,238,0.12); color:var(--cyan); }
+  .zoom-btn.active{ color:var(--cyan); background:rgba(34,211,238,0.1); }
   .zoom-divider{ width:26px; height:1px; background:var(--line); }
 
   .map-empty{ position:absolute; inset:0; display:none; align-items:center; justify-content:center; color:var(--text-muted); font-size:12.5px; text-align:center; padding:30px; z-index:300; }
   .map-banner{ position:absolute; top:170px; left:14px; right:66px; z-index:497; font-size:10.5px; line-height:1.4; color:var(--violet); border-radius:10px; padding:8px 10px; display:none; }
   .map-banner.show{ display:block; }
-
-  .recenter-btn{ position:absolute; right:14px; z-index:400; width:38px; height:38px; border-radius:12px; display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--text-muted); }
 
   /* distance HUD */
   .distance-hud{ position:absolute; left:14px; right:14px; bottom:140px; z-index:800; border-radius:18px; padding:12px 14px; display:none; gap:10px; align-items:center; }
@@ -275,15 +274,15 @@
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
           <span id="filterTriggerLabel">Filtros</span>
         </button>
-        <button class="icon-pill glass" id="discountBtn" title="Os teus descontos" style="position:relative;">🎫<span id="discountStaleDot" style="display:none; position:absolute; top:6px; right:6px; width:8px; height:8px; border-radius:50%; background:#FBBF24; border:1.5px solid var(--panel-solid);"></span></button>
-        <button class="icon-pill glass" id="infoBtn">ⓘ</button>
+        <button class="icon-pill glass" id="discountBtn" title="Os teus descontos" style="position:relative; opacity:0.85;">🎫<span id="discountStaleDot" style="display:none; position:absolute; top:6px; right:6px; width:8px; height:8px; border-radius:50%; background:#FBBF24; border:1.5px solid var(--panel-solid);"></span></button>
+        <button class="icon-pill glass" id="infoBtn" style="opacity:0.85;">ⓘ</button>
       </div>
 
       <div class="info-box glass" id="infoBox">
         <div class="info-row"><b>⛽ Dados</b> — reais, oficiais, atualizados diariamente pela DGEG/ERSE.</div>
         <div class="info-row"><b>🎯 Melhor valor</b> — calcula a rota e a altitude <b>reais</b> para os ~10 postos mais baratos, mostra "✅ compensa"/"⚠️ não compensa" face ao teu posto mais próximo, e ordena pelo custo total de lá ir e voltar (combustível + desgaste). É a vista principal.</div>
         <div class="info-row"><b>💰 Mais barato</b> — lista simples, ordenada só pelo preço, sem cálculos extra.</div>
-        <div class="info-row"><b>Pressupostos assumidos</b> — carro médio (~1400kg, 6,5L/100km) e desgaste 0,04€/km (pneus, travões, óleo), iguais para os três veículos. O depósito muda consoante o que escolheres (🏍️ 13L / 🚗 50L / 🚐 70L, dentro de "Ver lista") — e assim que trocas, tudo recalcula de imediato: a ordenação do "Melhor valor", o "compensa", e o custo de encher, tanto na lista completa como nos cartões. Não é o consumo exato do teu veículo.</div>
+        <div class="info-row"><b>Pressupostos assumidos</b> — cada veículo tem o seu próprio peso, consumo e desgaste (dentro de "Ver lista"): 🏍️ Mota (220kg, 3,5L/100km, 0,02€/km), 🚗 Ligeiro (1400kg, 6,5L/100km, 0,04€/km), 🚐 Comercial (1900kg, 8,5L/100km, 0,06€/km), 🚚 Camião (~12000kg, ~30L/100km, ~0,18€/km — muito aproximado). Ao trocares, tudo recalcula de imediato, incluindo o efeito da altitude real do percurso. Não é o consumo exato do teu veículo específico.</div>
         <div class="info-row"><b>🛢️ Tendência do Brent</b> — dentro de "Ver lista", mostramos o preço atual do petróleo Brent e a evolução dos últimos dias (fonte gratuita e pública). É só um sinal — em Portugal os preços mudam à segunda-feira e também dependem da margem de refinação e de impostos (ISP/IVA), que podem anular o efeito do Brent. Não é uma previsão exata do preço por litro.</div>
         <div class="info-row"><b>🎫 Descontos</b> — configura os teus (Continente, COMBINA, etc.) no botão 🎫 do topo; aplicam-se aos preços e a todos os cálculos acima.</div>
         <div class="info-row"><b>★ Favoritos</b> — guardados neste telemóvel.</div>
@@ -295,14 +294,15 @@
 
       <div class="map-banner glass" id="mapBanner"></div>
 
-      <div class="zoom-control glass" id="zoomControl">
-        <button class="zoom-btn" id="zoomInBtn">+</button>
+      <div class="map-toolbar glass" id="mapToolbar">
+        <button class="zoom-btn" id="zoomInBtn" title="Aproximar">+</button>
         <div class="zoom-divider"></div>
-        <button class="zoom-btn" id="zoomOutBtn">−</button>
+        <button class="zoom-btn" id="zoomOutBtn" title="Afastar">−</button>
+        <div class="zoom-divider"></div>
+        <button class="zoom-btn" id="recenterBtn" title="Recentrar">◎</button>
+        <div class="zoom-divider"></div>
+        <button class="zoom-btn" id="mapToggle" title="Vista simplificada">⛶</button>
       </div>
-
-      <button class="recenter-btn glass" id="recenterBtn" style="bottom:150px;" title="Recentrar">◎</button>
-      <button class="icon-pill glass" id="mapToggle" style="position:absolute; right:14px; bottom:196px; z-index:400;" title="Vista simplificada">⛶</button>
 
       <div class="distance-hud glass" id="distanceHud">
         <div class="info">
@@ -333,7 +333,7 @@
       <button class="carousel-arrow left" id="carouselArrowLeft" aria-label="Deslizar para a esquerda">‹</button>
       <button class="carousel-arrow right" id="carouselArrowRight" aria-label="Deslizar para a direita">›</button>
 
-      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v50-infozfix</div>
+      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v53-pervehicle</div>
     </div>
   </div>
 </div>
@@ -422,9 +422,6 @@
   const GASOLINE_FUEL_KEYS = ['gasolina95', 'gasolina95p', 'gasolina98', 'gpl']; // camiões pesados não andam a gasolina/GPL
 
   const SEARCH_RADIUS_KM = 20; // raio fixo de pesquisa (não ajustável pelo utilizador)
-  const WEAR_COST_PER_KM = 0.04; // custo assumido de desgaste (pneus, travões, óleo) por km, além do combustível
-  const ASSUMED_L_PER_100KM = 6.5; // consumo médio assumido, para a estimativa rápida (sem altitude) na listagem
-  const ROAD_FACTOR = 1.3; // aproximação rápida: estrada real costuma ser ~30% mais longa que linha reta
 
   const toRad = d => d * Math.PI / 180;
   function distanceKm(lat1, lon1, lat2, lon2){
@@ -461,17 +458,17 @@
   }
 
   const VEHICLE_TANKS = [
-    { key:'mota', label:'🏍️ Mota', liters:13 },
-    { key:'ligeiro', label:'🚗 Ligeiro', liters:50 },
-    { key:'comercial', label:'🚐 Comercial', liters:70 },
-    { key:'camiao', label:'🚚 Camião', liters:300, approx:true },
+    { key:'mota', label:'🏍️ Mota', liters:13, massKg:220, consumption:3.5, wearPerKm:0.02 },
+    { key:'ligeiro', label:'🚗 Ligeiro', liters:50, massKg:1400, consumption:6.5, wearPerKm:0.04 },
+    { key:'comercial', label:'🚐 Comercial', liters:70, massKg:1900, consumption:8.5, wearPerKm:0.06 },
+    { key:'camiao', label:'🚚 Camião', liters:300, massKg:12000, consumption:30, wearPerKm:0.18, approx:true },
   ];
 
   const state = {
     center: TOWNS[0], selectedId: null,
     fuel: 'gasoleo', favoritesOnly: false,
     sortMode: 'value', // 'value' (rota real, custo total) ou 'price' (preço simples)
-    tankSizeL: 50, // depósito assumido — mudável pelo utilizador (ver VEHICLE_TANKS)
+    tankSizeL: 50, massKg: 1400, consumption: 6.5, wearPerKm: 0.04, vehicleKey: 'ligeiro', // veículo assumido — mudável pelo utilizador (ver VEHICLE_TANKS)
   };
   let renderToken = 0;
 
@@ -770,21 +767,27 @@
         el.innerHTML = `Brent ${priceTxt} — a começar a acompanhar a tendência (volta daqui a uns dias para veres a evolução)`;
       }
     } catch (e) {
-      document.getElementById('brentBanner').style.display = 'none';
+      el.textContent = 'Tendência do petróleo indisponível de momento.';
     }
   }
 
   function renderTankSelector(){
     const el = document.getElementById('tankSelector');
     el.innerHTML = VEHICLE_TANKS.map(v => `
-      <button class="tank-pill ${state.tankSizeL===v.liters?'active':''}" data-liters="${v.liters}">
+      <button class="tank-pill ${state.vehicleKey===v.key?'active':''}" data-key="${v.key}">
         ${v.label}<span class="l">${v.approx?'~':''}${v.liters}L</span>
       </button>`).join('');
     el.querySelectorAll('.tank-pill').forEach(btn => {
       btn.addEventListener('click', () => {
-        const liters = parseInt(btn.getAttribute('data-liters'), 10);
-        if (liters === state.tankSizeL) return;
-        state.tankSizeL = liters;
+        const key = btn.getAttribute('data-key');
+        if (key === state.vehicleKey) return;
+        const v = VEHICLE_TANKS.find(x => x.key === key);
+        if (!v) return;
+        state.vehicleKey = v.key;
+        state.tankSizeL = v.liters;
+        state.massKg = v.massKg;
+        state.consumption = v.consumption;
+        state.wearPerKm = v.wearPerKm;
         invalidateValueCache();
         renderTankSelector();
         renderAll(); // atualiza os cartões pequenos também, não só a lista completa
@@ -794,8 +797,8 @@
     // motas não andam a gasóleo, camiões pesados não andam a gasolina/GPL —
     // avisa se a combinação escolhida não fizer sentido (sem impedir)
     const warnEl = document.getElementById('vehicleFuelWarning');
-    const isMota = state.tankSizeL === 13;
-    const isCamiao = state.tankSizeL === 300;
+    const isMota = state.vehicleKey === 'mota';
+    const isCamiao = state.vehicleKey === 'camiao';
     const isDiesel = DIESEL_FUEL_KEYS.includes(state.fuel);
     const isGasolina = GASOLINE_FUEL_KEYS.includes(state.fuel);
     if (isMota && isDiesel){
@@ -824,13 +827,13 @@
 
     const results = await Promise.all(candidates.map(async (s) => {
       try {
-        const url = `/api/rota?fromLat=${state.center.lat}&fromLon=${state.center.lon}&toLat=${s.lat}&toLon=${s.lon}`;
+        const url = `/api/rota?fromLat=${state.center.lat}&fromLon=${state.center.lon}&toLat=${s.lat}&toLon=${s.lon}&mass=${state.massKg}&consumption=${state.consumption}`;
         const res = await fetch(url);
         if (!res.ok) return null;
         const data = await res.json();
         const roundTripKm = data.distanceKm * 2;
-        const roundTripL = (data.litersOneWay != null ? data.litersOneWay : (data.distanceKm * ASSUMED_L_PER_100KM/100)) * 2;
-        const custoDeslocacao = roundTripKm * WEAR_COST_PER_KM + roundTripL * s.effectivePrice;
+        const roundTripL = (data.litersOneWay != null ? data.litersOneWay : (data.distanceKm * state.consumption/100)) * 2;
+        const custoDeslocacao = roundTripKm * state.wearPerKm + roundTripL * s.effectivePrice;
         const totalCost = state.tankSizeL * s.effectivePrice + custoDeslocacao;
         return { ...s, realDistanceKm: data.distanceKm, realDurationMin: data.durationMin, custoDeslocacao, totalCost };
       } catch (e) {
@@ -846,7 +849,7 @@
   async function fetchRoadRoute(s){
     const myToken = ++routeRequestToken;
     try {
-      const url = `/api/rota?fromLat=${state.center.lat}&fromLon=${state.center.lon}&toLat=${s.lat}&toLon=${s.lon}`;
+      const url = `/api/rota?fromLat=${state.center.lat}&fromLon=${state.center.lon}&toLat=${s.lat}&toLon=${s.lon}&mass=${state.massKg}&consumption=${state.consumption}`;
       const res = await fetch(url);
       if (myToken !== routeRequestToken || state.selectedId !== s.id) return; // seleção mudou entretanto
       if (!res.ok){
@@ -876,7 +879,7 @@
           const roundTripKm = data.distanceKm * 2;
           const roundTripL = data.litersOneWay * 2;
           const custoCombustivel = roundTripL * sPrice;
-          const custoDesgaste = roundTripKm * WEAR_COST_PER_KM;
+          const custoDesgaste = roundTripKm * state.wearPerKm;
           const custoTotal = custoCombustivel + custoDesgaste;
           const poupancaBruta = (nearest.effectivePrice - sPrice) * state.tankSizeL;
           const net = poupancaBruta - custoTotal;

@@ -240,11 +240,15 @@ const ROUTE_CACHE_TTL_MS = 60 * 60 * 1000; // 1h
 
 app.get('/api/rota', async (req, res) => {
   try {
-    const { fromLat, fromLon, toLat, toLon } = req.query;
+    const { fromLat, fromLon, toLat, toLon, mass, consumption } = req.query;
     if ([fromLat, fromLon, toLat, toLon].some((v) => v === undefined)) {
       return res.status(400).json({ error: 'Parâmetros em falta: fromLat, fromLon, toLat, toLon' });
     }
-    const key = `${fromLat},${fromLon},${toLat},${toLon}`;
+    // veículo: mass (kg) e consumption (L/100km) são opcionais — usam os
+    // valores de "carro médio" por omissão, para não partir pedidos antigos
+    const massKg = Number.isFinite(Number(mass)) && Number(mass) > 0 ? Number(mass) : ASSUMED_MASS_KG;
+    const consumptionL100 = Number.isFinite(Number(consumption)) && Number(consumption) > 0 ? Number(consumption) : ASSUMED_L_PER_100KM;
+    const key = `${fromLat},${fromLon},${toLat},${toLon},${massKg},${consumptionL100}`;
     const now = Date.now();
     if (routeCache[key] && now - routeCache[key].fetchedAt < ROUTE_CACHE_TTL_MS) {
       return res.json(routeCache[key].data);
@@ -263,7 +267,7 @@ app.get('/api/rota', async (req, res) => {
     const coordinates = (route.geometry.coordinates || []).map(([lon, lat]) => [lat, lon]);
     const distanceKm = route.distance / 1000;
 
-    const elevation = await estimateFuelEffect(coordinates, distanceKm);
+    const elevation = await estimateFuelEffect(coordinates, distanceKm, massKg, consumptionL100);
 
     const data = {
       distanceKm,
@@ -286,13 +290,15 @@ app.get('/api/rota', async (req, res) => {
 // do teu carro): subidas custam combustível extra; descidas poupam algum
 // (motor a combustão não "recupera" energia como um elétrico, mas gasta
 // muito menos a descer — travagem por motor/embalar).
-const ASSUMED_MASS_KG = 1400;
-const ASSUMED_L_PER_100KM = 6.5;
+const ASSUMED_MASS_KG = 1400; // omissão: carro ligeiro
+const ASSUMED_L_PER_100KM = 6.5; // omissão: carro ligeiro
 const USABLE_WH_PER_LITER = 3600; // energia mecânica útil por litro, após rendimento do motor
 const DOWNHILL_SAVING_FACTOR = 0.4; // fração do custo de subida equivalente, poupada a descer
 const G = 9.81;
 
-async function estimateFuelEffect(coordinates, distanceKm) {
+async function estimateFuelEffect(coordinates, distanceKm, massKg, consumptionL100) {
+  massKg = massKg || ASSUMED_MASS_KG;
+  consumptionL100 = consumptionL100 || ASSUMED_L_PER_100KM;
   try {
     if (!coordinates || coordinates.length < 2) return null;
     const sampleCount = Math.min(20, coordinates.length);
@@ -322,9 +328,9 @@ async function estimateFuelEffect(coordinates, distanceKm) {
       if (delta > 0) gainM += delta; else lossM += -delta;
     }
 
-    const baseLiters = distanceKm * ASSUMED_L_PER_100KM / 100;
-    const extraLitersUphill = (ASSUMED_MASS_KG * G * gainM / 3600) / USABLE_WH_PER_LITER;
-    const savedLitersDownhill = DOWNHILL_SAVING_FACTOR * (ASSUMED_MASS_KG * G * lossM / 3600) / USABLE_WH_PER_LITER;
+    const baseLiters = distanceKm * consumptionL100 / 100;
+    const extraLitersUphill = (massKg * G * gainM / 3600) / USABLE_WH_PER_LITER;
+    const savedLitersDownhill = DOWNHILL_SAVING_FACTOR * (massKg * G * lossM / 3600) / USABLE_WH_PER_LITER;
     const liters = Math.max(baseLiters * 0.7, baseLiters + extraLitersUphill - savedLitersDownhill);
 
     return { gainM: Math.round(gainM), lossM: Math.round(lossM), liters: Math.round(liters * 1000) / 1000 };
