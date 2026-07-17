@@ -68,7 +68,7 @@
   .icon-pill.active{ color:var(--cyan); border-color:rgba(34,211,238,0.4); }
 
   .info-box{ position:absolute; top:104px; left:14px; right:14px; z-index:850; font-size:11.5px; line-height:1.5; color:var(--text-muted); border-radius:12px; padding:10px 12px; opacity:0; transform:translateY(-6px) scale(0.98); pointer-events:none; transition:opacity .18s ease, transform .18s ease; max-height:70vh; overflow-y:auto; }
-  .fuel-chip-row{ position:absolute; top:60px; left:14px; right:14px; z-index:500; display:flex; gap:6px; overflow-x:auto; scrollbar-width:none; -webkit-overflow-scrolling:touch; padding-bottom:2px; }
+  .fuel-chip-row{ position:absolute; top:60px; left:14px; right:70px; z-index:750; display:flex; gap:6px; overflow-x:auto; scrollbar-width:none; -webkit-overflow-scrolling:touch; padding-bottom:2px; }
   .fuel-chip-row::-webkit-scrollbar{ display:none; }
   .info-box.open{ opacity:1; transform:translateY(0) scale(1); pointer-events:auto; }
   .info-row{ padding:4px 0; border-top:1px solid rgba(255,255,255,0.06); }
@@ -324,7 +324,7 @@
       <button class="carousel-arrow left" id="carouselArrowLeft" aria-label="Deslizar para a esquerda">‹</button>
       <button class="carousel-arrow right" id="carouselArrowRight" aria-label="Deslizar para a direita">›</button>
 
-      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v65-btnonly</div>
+      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v68-dragrow</div>
     </div>
   </div>
 </div>
@@ -1169,6 +1169,7 @@
     fuelEl.innerHTML = FUELS.map(f => `<button class="chip" data-fuel="${f.key}" data-label="${f.label}">${f.label}</button>`).join('');
     fuelEl.querySelectorAll('[data-fuel]').forEach(btn => {
       btn.addEventListener('click', () => {
+        if (fuelRowDragState.moved) return; // foi um arrasto, não um toque — não muda o combustível
         state.fuel = btn.getAttribute('data-fuel');
         onFilterChanged();
         btn.scrollIntoView({ behavior:'smooth', inline:'center', block:'nearest' });
@@ -1234,40 +1235,43 @@
 
   // ---------- deslizar a lista de postos (controlo manual, não depende do
   // scroll nativo do browser — evita conflito com os gestos do mapa por baixo) ----------
-  const carouselDragState = { active:false, startX:0, startScroll:0, moved:false };
-  const carouselEl = document.getElementById('carousel');
+  // Controlo manual de "arrastar para deslizar" — reutilizável para qualquer
+  // fila horizontal por cima do mapa, que de outra forma teria o gesto
+  // "roubado" pelos gestos de pan/zoom do mapa por baixo.
   const DRAG_THRESHOLD = 12; // px — abaixo disto conta como toque, não arrasto (mais tolerante, evita cancelar toques em alvos pequenos)
-
-  carouselEl.addEventListener('pointerdown', (e) => {
-    carouselDragState.active = true;
-    carouselDragState.moved = false;
-    carouselDragState.startX = e.clientX;
-    carouselDragState.startScroll = carouselEl.scrollLeft;
-    carouselDragState.pointerId = e.pointerId;
-    // Nota: NÃO capturamos o ponteiro aqui — só quando confirmarmos que é
-    // mesmo um arrasto (ver pointermove). Capturar logo ao primeiro toque
-    // desviava o "click" final para o carrossel inteiro, em vez do elemento
-    // exato tocado (cartão, etiqueta, etc.) — era a causa do bug.
-  });
-  carouselEl.addEventListener('pointermove', (e) => {
-    if (!carouselDragState.active) return;
-    const dx = e.clientX - carouselDragState.startX;
-    if (Math.abs(dx) > DRAG_THRESHOLD && !carouselDragState.moved){
-      carouselDragState.moved = true;
-      try { carouselEl.setPointerCapture(carouselDragState.pointerId); } catch (err) {}
+  function makeDraggableRow(el){
+    const state = { active:false, startX:0, startScroll:0, moved:false, pointerId:null };
+    el.addEventListener('pointerdown', (e) => {
+      state.active = true;
+      state.moved = false;
+      state.startX = e.clientX;
+      state.startScroll = el.scrollLeft;
+      state.pointerId = e.pointerId;
+    });
+    el.addEventListener('pointermove', (e) => {
+      if (!state.active) return;
+      const dx = e.clientX - state.startX;
+      if (Math.abs(dx) > DRAG_THRESHOLD && !state.moved){
+        state.moved = true;
+        try { el.setPointerCapture(state.pointerId); } catch (err) {}
+      }
+      if (state.moved){
+        el.scrollLeft = state.startScroll - dx;
+      }
+    });
+    function endDrag(){
+      state.active = false;
+      setTimeout(() => { state.moved = false; }, 50);
     }
-    if (carouselDragState.moved){
-      carouselEl.scrollLeft = carouselDragState.startScroll - dx;
-    }
-  });
-  function endCarouselDrag(){
-    carouselDragState.active = false;
-    // o "moved" mantém-se até ao próximo toque, para o click do cartão saber
-    // que aquele gesto foi um arrasto e não deve selecionar nada
-    setTimeout(() => { carouselDragState.moved = false; }, 50);
+    el.addEventListener('pointerup', endDrag);
+    el.addEventListener('pointercancel', endDrag);
+    return state; // .moved indica, no momento do click, se o gesto foi um arrasto
   }
-  carouselEl.addEventListener('pointerup', endCarouselDrag);
-  carouselEl.addEventListener('pointercancel', endCarouselDrag);
+
+  const carouselDragState = makeDraggableRow(document.getElementById('carousel'));
+  const carouselEl = document.getElementById('carousel');
+
+  const fuelRowDragState = makeDraggableRow(document.getElementById('fuelChipRow'));
 
   document.getElementById('carouselArrowLeft').addEventListener('click', () => {
     carouselEl.scrollBy({ left: -170, behavior: 'smooth' });
