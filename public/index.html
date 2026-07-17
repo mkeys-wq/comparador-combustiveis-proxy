@@ -59,7 +59,8 @@
   .topbar{ position:absolute; top:14px; left:14px; right:14px; z-index:500; display:flex; gap:8px; align-items:center; }
   .brand-pill{ display:flex; align-items:center; gap:6px; padding:9px 12px; border-radius:14px; }
   .brand{ font-size:17px; font-weight:700; letter-spacing:0.5px; line-height:1; }
-  .brand .plus{ background:linear-gradient(135deg,var(--cyan),var(--violet)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .brand .plus{ background:linear-gradient(135deg,var(--cyan),var(--violet),var(--cyan)); background-size:200% 200%; -webkit-background-clip:text; background-clip:text; color:transparent; animation:brandShift 4s ease-in-out infinite; display:inline-block; }
+  @keyframes brandShift{ 0%,100%{ background-position:0% 50%; } 50%{ background-position:100% 50%; } }
   .loc-pill{ flex:1; display:flex; align-items:center; gap:6px; padding:10px 12px; border-radius:14px; cursor:pointer; min-width:0; transition:transform .1s ease; }
   .loc-pill:active{ transform:scale(0.97); }
   .loc-pill span{ flex:1; font-size:12.5px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -67,7 +68,7 @@
   .icon-pill:active{ transform:scale(0.92); }
   .icon-pill.active{ color:var(--cyan); border-color:rgba(34,211,238,0.4); }
 
-  .info-box{ position:absolute; top:104px; left:14px; right:14px; z-index:850; font-size:11.5px; line-height:1.5; color:var(--text-muted); border-radius:12px; padding:10px 12px; opacity:0; transform:translateY(-6px) scale(0.98); pointer-events:none; transition:opacity .18s ease, transform .18s ease; max-height:70vh; overflow-y:auto; }
+  .info-box{ position:absolute; top:104px; left:14px; right:14px; z-index:850; font-size:11.5px; line-height:1.5; color:var(--text-muted); border-radius:12px; padding:10px 12px; opacity:0; transform:translateY(-8px) scale(0.97); pointer-events:none; transition:opacity .22s cubic-bezier(.2,.9,.25,1), transform .22s cubic-bezier(.2,.9,.25,1); max-height:70vh; overflow-y:auto; }
   .fuel-chip-row{ position:absolute; top:60px; left:14px; right:70px; z-index:750; display:flex; gap:6px; overflow-x:auto; scrollbar-width:none; -webkit-overflow-scrolling:touch; padding-bottom:2px; }
   .fuel-chip-row::-webkit-scrollbar{ display:none; }
   .info-box.open{ opacity:1; transform:translateY(0) scale(1); pointer-events:auto; }
@@ -118,8 +119,9 @@
   .map-banner.show{ display:block; }
 
   /* distance HUD */
-  .distance-hud{ position:absolute; left:14px; right:14px; bottom:140px; z-index:800; border-radius:18px; padding:12px 14px; display:none; gap:10px; align-items:center; }
-  .distance-hud.show{ display:flex; }
+  .distance-hud{ position:absolute; left:14px; right:14px; bottom:140px; z-index:800; border-radius:18px; padding:12px 14px; display:none; gap:10px; align-items:center; opacity:0; transform:translateY(14px) scale(0.96); }
+  .distance-hud.show{ display:flex; animation:hudIn .38s cubic-bezier(.2,.9,.25,1.15) forwards; }
+  @keyframes hudIn{ from{ opacity:0; transform:translateY(14px) scale(0.96);} to{ opacity:1; transform:translateY(0) scale(1);} }
   .distance-hud .info{ flex:1; min-width:0; }
   .distance-hud .name{ font-size:13px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .distance-hud .sub{ font-size:10.5px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:1px; }
@@ -162,8 +164,9 @@
   .full-row .mid{ flex:1; min-width:0; }
   .full-row .name{ font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .full-row .sub{ font-size:10.5px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:1px; }
-  .full-tag{ display:inline-block; font-size:9px; font-weight:700; margin-top:3px; padding:1px 6px; border-radius:5px; }
-  .mini-tag{ font-size:9px; font-weight:700; margin-top:5px; padding:3px 7px; border-radius:6px; display:inline-block; }
+  .full-tag{ display:inline-block; font-size:9px; font-weight:700; margin-top:3px; padding:1px 6px; border-radius:5px; animation:tagPop .32s cubic-bezier(.34,1.56,.64,1) backwards; }
+  .mini-tag{ font-size:9px; font-weight:700; margin-top:5px; padding:3px 7px; border-radius:6px; display:inline-block; animation:tagPop .32s cubic-bezier(.34,1.56,.64,1) backwards; }
+  @keyframes tagPop{ from{ opacity:0; transform:scale(0.7);} to{ opacity:1; transform:scale(1);} }
   .mini-tag.ok{ background:rgba(52,211,153,0.18); color:#34D399; border:1px solid rgba(52,211,153,0.5); font-weight:800; }
   .mini-tag.no{ background:rgba(244,63,94,0.18); color:#FCA5A5; border:1px solid rgba(244,63,94,0.5); font-weight:800; }
   .mini-tag.ref{ background:rgba(34,211,238,0.15); color:var(--cyan); }
@@ -191,10 +194,10 @@
   .ev-card{ scroll-snap-align:start; flex:0 0 auto; width:172px; height:130px; border-radius:16px; padding:12px 13px 11px 15px; cursor:pointer; position:relative; animation:cardIn .28s ease backwards; transition:transform .15s ease, box-shadow .15s ease; border-left-width:4px; border-left-style:solid; box-shadow:0 4px 14px rgba(0,0,0,0.25); box-sizing:border-box; display:flex; flex-direction:column; overflow:hidden; }
   .ev-card:active{ transform:scale(0.97); }
   @keyframes cardIn{ from{ opacity:0; transform:translateY(8px); } to{ opacity:1; transform:translateY(0); } }
-  .ev-card.selected{ box-shadow:0 0 0 1.5px var(--cyan), 0 6px 20px rgba(34,211,238,0.25); }
+  .ev-card.selected{ box-shadow:0 0 0 2px var(--cyan), 0 8px 28px rgba(34,211,238,0.35); transform:translateY(-3px); }
   .ev-card .top-row{ display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:6px; }
   .ev-card .name{ font-size:12px; font-weight:700; line-height:1.3; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; flex:1; min-width:0; color:var(--text); }
-  .ev-card .power{ font-size:17px; font-weight:800; font-family:'JetBrains Mono',monospace; flex-shrink:0; letter-spacing:-0.3px; }
+  .ev-card .power{ font-size:17px; font-weight:800; font-family:'JetBrains Mono',monospace; flex-shrink:0; letter-spacing:-0.3px; text-shadow:0 0 14px currentColor; }
   .ev-card .sub{ font-size:10px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .ev-card .dist{ font-size:9.5px; color:var(--text-faint); margin-top:3px; line-height:1.4; }
   .ev-card .conn-row{ display:flex; gap:4px; margin-top:5px; flex-wrap:wrap; }
@@ -217,7 +220,7 @@
   /* location sheet */
   .sheet-backdrop{ position:fixed; inset:0; background:rgba(0,0,0,0.6); display:none; align-items:flex-end; justify-content:center; z-index:900; }
   .sheet-backdrop.open{ display:flex; }
-  .sheet{ width:100%; max-width:420px; background:var(--panel-solid); border-top-left-radius:24px; border-top-right-radius:24px; border:1px solid var(--line); padding:18px; max-height:82vh; overflow-y:auto; animation:slideUp .2s ease-out; color:var(--text); font-family:'Inter',sans-serif; }
+  .sheet{ width:100%; max-width:420px; background:var(--panel-solid); border-top-left-radius:24px; border-top-right-radius:24px; border:1px solid var(--line); padding:18px; max-height:82vh; overflow-y:auto; animation:slideUp .34s cubic-bezier(.2,.9,.25,1.05); color:var(--text); font-family:'Inter',sans-serif; }
   @keyframes slideUp{ from{ transform:translateY(20px); opacity:0;} to{ transform:translateY(0); opacity:1;} }
   .sheet-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
   .sheet-title{ font-size:17px; font-weight:700; }
@@ -324,7 +327,7 @@
       <button class="carousel-arrow left" id="carouselArrowLeft" aria-label="Deslizar para a esquerda">‹</button>
       <button class="carousel-arrow right" id="carouselArrowRight" aria-label="Deslizar para a direita">›</button>
 
-      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v69-verlistafix</div>
+      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v70-polish</div>
     </div>
   </div>
 </div>
