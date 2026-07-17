@@ -283,6 +283,7 @@
         <div class="info-row"><b>🎯 Melhor valor</b> — calcula a rota e a altitude <b>reais</b> para os ~10 postos mais baratos, mostra "✅ compensa"/"⚠️ não compensa" face ao teu posto mais próximo, e ordena pelo custo total de lá ir e voltar (combustível + desgaste). É a vista principal.</div>
         <div class="info-row"><b>💰 Mais barato</b> — lista simples, ordenada só pelo preço, sem cálculos extra.</div>
         <div class="info-row"><b>Pressupostos assumidos</b> — cada veículo tem o seu próprio peso, consumo e desgaste (dentro de "Ver lista"): 🏍️ Mota (220kg, 3,5L/100km, 0,02€/km), 🚗 Ligeiro (1400kg, 6,5L/100km, 0,04€/km), 🚐 Comercial (1900kg, 8,5L/100km, 0,06€/km), 🚚 Camião (~12000kg, ~30L/100km, ~0,18€/km — muito aproximado). Ao trocares, tudo recalcula de imediato, incluindo o efeito da altitude real do percurso. Não é o consumo exato do teu veículo específico.</div>
+        <div class="info-row"><b>📍 Raio de pesquisa</b> — também ajustável dentro de "Ver lista" (10km a país inteiro). Com raios muito grandes, só mostramos os 400 postos mais baratos de cada vez, para o mapa não ficar sobrecarregado.</div>
         <div class="info-row"><b>🛢️ Tendência do Brent</b> — dentro de "Ver lista", mostramos o preço atual do petróleo Brent e a evolução dos últimos dias (fonte gratuita e pública). É só um sinal — em Portugal os preços mudam à segunda-feira e também dependem da margem de refinação e de impostos (ISP/IVA), que podem anular o efeito do Brent. Não é uma previsão exata do preço por litro.</div>
         <div class="info-row"><b>🎫 Descontos</b> — configura os teus (Continente, COMBINA, etc.) no botão 🎫 do topo; aplicam-se aos preços e a todos os cálculos acima.</div>
         <div class="info-row"><b>★ Favoritos</b> — guardados neste telemóvel.</div>
@@ -333,7 +334,7 @@
       <button class="carousel-arrow left" id="carouselArrowLeft" aria-label="Deslizar para a esquerda">‹</button>
       <button class="carousel-arrow right" id="carouselArrowRight" aria-label="Deslizar para a direita">›</button>
 
-      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v55-voucherbadge</div>
+      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v59-verified</div>
     </div>
   </div>
 </div>
@@ -370,6 +371,7 @@
       <span class="txt" id="brentTxt">A obter tendência do petróleo…</span>
     </div>
     <div class="tank-selector" id="tankSelector"></div>
+    <div class="tank-selector" id="radiusSelector"></div>
     <div id="vehicleFuelWarning" style="display:none; font-size:10.5px; color:#FBBF24; background:rgba(251,191,36,0.1); border:1px solid rgba(251,191,36,0.3); border-radius:10px; padding:8px 10px; margin-bottom:10px;"></div>
     <div class="eyebrow" id="fullListSubtitle">A carregar…</div>
     <div id="fullList"></div>
@@ -421,7 +423,8 @@
   const DIESEL_FUEL_KEYS = ['gasoleo', 'gasoleop', 'gasoleoagr']; // motas não andam a gasóleo
   const GASOLINE_FUEL_KEYS = ['gasolina95', 'gasolina95p', 'gasolina98', 'gpl']; // camiões pesados não andam a gasolina/GPL
 
-  const SEARCH_RADIUS_KM = 20; // raio fixo de pesquisa (não ajustável pelo utilizador)
+  const RADIUS_OPTIONS = [10, 20, 50, 100, 300]; // km — 300 cobre a maior parte do país a partir de um ponto central
+  const RESULT_CAP = 400; // limite de segurança: nunca processar/mostrar mais do que isto de uma vez
 
   const toRad = d => d * Math.PI / 180;
   function distanceKm(lat1, lon1, lat2, lon2){
@@ -443,7 +446,10 @@
     if (r<=12) return 11.3;
     if (r<=18) return 10.6;
     if (r<=24) return 10;
-    return 9.5;
+    if (r<=50) return 9;
+    if (r<=100) return 8;
+    if (r<=200) return 7;
+    return 6.3; // ~300km, cobre a maior parte do país a partir de um ponto central
   }
   function colorForPrice(t){
     // t: 0 (mais barato) -> 1 (mais caro), gradiente verde -> amarelo -> vermelho
@@ -469,6 +475,7 @@
     fuel: 'gasoleo', favoritesOnly: false,
     sortMode: 'value', // 'value' (rota real, custo total) ou 'price' (preço simples)
     tankSizeL: 50, massKg: 1400, consumption: 6.5, wearPerKm: 0.04, vehicleKey: 'ligeiro', // veículo assumido — mudável pelo utilizador (ver VEHICLE_TANKS)
+    searchRadiusKm: 20, // ajustável pelo utilizador (ver RADIUS_OPTIONS)
   };
   let renderToken = 0;
 
@@ -499,10 +506,10 @@
   let usingFallbackMap = false;
   let tileLoadedOnce = false;
 
-  const map = L.map('map', { zoomControl: false, attributionControl: true }).setView([state.center.lat, state.center.lon], zoomForRadius(SEARCH_RADIUS_KM));
+  const map = L.map('map', { zoomControl: false, attributionControl: true }).setView([state.center.lat, state.center.lon], zoomForRadius(state.searchRadiusKm));
 
   function recenterMap(){
-    map.setView([state.center.lat, state.center.lon], zoomForRadius(SEARCH_RADIUS_KM));
+    map.setView([state.center.lat, state.center.lon], zoomForRadius(state.searchRadiusKm));
   }
 
   const lightLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -554,7 +561,7 @@
   }
 
   let radiusCircle = L.circle([state.center.lat, state.center.lon], {
-    radius: SEARCH_RADIUS_KM*1000, color: C.cyan, weight: 1.2, fillColor: C.cyan, fillOpacity: 0.05
+    radius: state.searchRadiusKm*1000, color: C.cyan, weight: 1.2, fillColor: C.cyan, fillOpacity: 0.05
   }).addTo(map);
 
   const centerIcon = L.divIcon({ className:'', html:'<div class="center-pin"></div>', iconSize:[20,20], iconAnchor:[10,10] });
@@ -633,11 +640,11 @@
   let lastFetchKey = '';
 
   async function fetchStations(){
-    const key = `${state.fuel},${state.center.lat.toFixed(3)},${state.center.lon.toFixed(3)}`;
+    const key = `${state.fuel},${state.center.lat.toFixed(3)},${state.center.lon.toFixed(3)},${state.searchRadiusKm}`;
     if (key === lastFetchKey) return rawStations;
     isLoadingStations = true;
     renderLoadingState();
-    const url = `/api/postos?fuel=${encodeURIComponent(state.fuel)}&lat=${state.center.lat}&lon=${state.center.lon}&raio=${SEARCH_RADIUS_KM}`;
+    const url = `/api/postos?fuel=${encodeURIComponent(state.fuel)}&lat=${state.center.lat}&lon=${state.center.lon}&raio=${state.searchRadiusKm}`;
     try {
       const res = await fetch(url);
       if (!res.ok) return rawStations;
@@ -684,9 +691,22 @@
     }
     list = list.map(s => ({ ...s, effectivePrice: getEffectivePrice(s) }));
     list.sort((a,b) => a.effectivePrice - b.effectivePrice);
+    let capped = false;
+    if (list.length > RESULT_CAP){
+      // o posto mais próximo é usado como referência em TODOS os cálculos de
+      // "compensa" — tem de continuar presente mesmo que fique de fora do
+      // corte por preço, senão as comparações ficam erradas.
+      const nearest = list.slice().sort((a,b) => a.dist - b.dist)[0];
+      list = list.slice(0, RESULT_CAP);
+      if (nearest && !list.some(s => s.id === nearest.id)){
+        list.push(nearest);
+        list.sort((a,b) => a.effectivePrice - b.effectivePrice);
+      }
+      capped = true;
+    }
     const min = list.length ? list[0].effectivePrice : 0;
     const max = list.length ? list[list.length-1].effectivePrice : 0;
-    return list.map(s => ({ ...s, t: max===min ? 0 : (s.effectivePrice-min)/(max-min) }));
+    return list.map(s => ({ ...s, t: max===min ? 0 : (s.effectivePrice-min)/(max-min), _capped: capped }));
   }
 
   // ---------- selection + distance HUD ----------
@@ -777,6 +797,25 @@
     }
   }
 
+  function renderRadiusSelector(){
+    const el = document.getElementById('radiusSelector');
+    el.innerHTML = RADIUS_OPTIONS.map(r => `
+      <button class="tank-pill ${state.searchRadiusKm===r?'active':''}" data-radius="${r}">
+        ${r>=300?'🇵🇹':'📍'}<span class="l">${r>=300?'País':r+'km'}</span>
+      </button>`).join('');
+    el.querySelectorAll('.tank-pill').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const r = parseInt(btn.getAttribute('data-radius'), 10);
+        if (r === state.searchRadiusKm) return;
+        state.searchRadiusKm = r;
+        recenterMap();
+        invalidateValueCache();
+        renderRadiusSelector();
+        renderAll();
+      });
+    });
+  }
+
   function renderTankSelector(){
     const el = document.getElementById('tankSelector');
     el.innerHTML = VEHICLE_TANKS.map(v => `
@@ -837,8 +876,11 @@
         const res = await fetch(url);
         if (!res.ok) return null;
         const data = await res.json();
+        // um 200 OK não garante que os campos vêm válidos — confirma antes
+        // de usar, para nunca deixar um número inválido passar para o ecrã
+        if (!Number.isFinite(data.distanceKm) || !Number.isFinite(data.durationMin)) return null;
         const roundTripKm = data.distanceKm * 2;
-        const roundTripL = (data.litersOneWay != null ? data.litersOneWay : (data.distanceKm * state.consumption/100)) * 2;
+        const roundTripL = (Number.isFinite(data.litersOneWay) ? data.litersOneWay : (data.distanceKm * state.consumption/100)) * 2;
         const custoDeslocacao = roundTripKm * state.wearPerKm + roundTripL * s.effectivePrice;
         const voucher = getVoucherAmount(s);
         const totalCost = Math.max(0, state.tankSizeL * s.effectivePrice + custoDeslocacao - voucher);
@@ -867,11 +909,18 @@
       const data = await res.json();
       if (myToken !== routeRequestToken || state.selectedId !== s.id) return;
 
+      // um 200 OK não garante campos válidos — confirma antes de usar
+      if (!Number.isFinite(data.distanceKm) || !Number.isFinite(data.durationMin)){
+        document.getElementById('hudDist').textContent = s.dist.toFixed(1);
+        document.getElementById('hudDistUnit').textContent = 'km (linha reta)';
+        return;
+      }
+
       document.getElementById('hudDist').textContent = data.distanceKm.toFixed(1);
       document.getElementById('hudDistUnit').textContent = Math.round(data.durationMin) + ' min de carro';
 
       const consumoEl = document.getElementById('hudConsumo');
-      if (data.litersOneWay != null){
+      if (Number.isFinite(data.litersOneWay)){
         // "nearest" = o posto mais próximo da TUA localização (não do selecionado)
         // — s.dist já vem do servidor calculado a partir do teu ponto de partida.
         // Comparação sempre com o preço efetivo (já com o teu desconto aplicado).
@@ -937,7 +986,7 @@
     // Nota: não chamamos map.setView aqui de propósito — selecionar um posto ou
     // atualizar a lista não deve mexer no zoom/posição que o utilizador escolheu.
     radiusCircle.setLatLng([state.center.lat, state.center.lon]);
-    radiusCircle.setRadius(SEARCH_RADIUS_KM*1000);
+    radiusCircle.setRadius(state.searchRadiusKm*1000);
     centerMarker.setLatLng([state.center.lat, state.center.lon]);
 
     list.forEach(s => {
@@ -969,8 +1018,8 @@
 
   function renderFallbackMap(list){
     const size = 320, cx = size/2, cy = size/2, maxR = 140;
-    const pxPerKm = maxR/SEARCH_RADIUS_KM;
-    const rings = [SEARCH_RADIUS_KM*0.34, SEARCH_RADIUS_KM*0.67, SEARCH_RADIUS_KM];
+    const pxPerKm = maxR/state.searchRadiusKm;
+    const rings = [state.searchRadiusKm*0.34, state.searchRadiusKm*0.67, state.searchRadiusKm];
 
     let svg = `<svg viewBox="0 0 ${size} ${size}" width="100%" height="100%" style="display:block">`;
     svg += `<rect width="${size}" height="${size}" fill="#04070D"/>`;
@@ -984,7 +1033,7 @@
       const sel = list.find(s => s.id === state.selectedId);
       if (sel){
         const bearing = bearingDeg(state.center.lat, state.center.lon, sel.lat, sel.lon);
-        const rp = Math.min(sel.dist, SEARCH_RADIUS_KM) * pxPerKm;
+        const rp = Math.min(sel.dist, state.searchRadiusKm) * pxPerKm;
         const rad = toRad(bearing);
         const x = cx + rp*Math.sin(rad), y = cy - rp*Math.cos(rad);
         svg += `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="${C.cyan}" stroke-width="1.5" stroke-dasharray="5 5" opacity="0.8"/>`;
@@ -993,7 +1042,7 @@
 
     list.forEach(s => {
       const bearing = bearingDeg(state.center.lat, state.center.lon, s.lat, s.lon);
-      const rp = Math.min(s.dist, SEARCH_RADIUS_KM) * pxPerKm;
+      const rp = Math.min(s.dist, state.searchRadiusKm) * pxPerKm;
       const rad = toRad(bearing);
       const x = cx + rp*Math.sin(rad), y = cy - rp*Math.cos(rad);
       const col = colorForPrice(s.t);
@@ -1232,17 +1281,24 @@
       clearSelection();
     }
 
-    renderMap(list);
-    renderFreshnessBadge(list);
-    if (fullListBackdrop.classList.contains('open')) renderFullList();
+    // Cada peça é isolada: se uma falhar por algo inesperado, as outras
+    // continuam a funcionar — a app nunca deve ficar completamente parada
+    // por causa de um único dado mal formatado.
+    try { renderMap(list); } catch (e) { console.error('renderMap falhou:', e); }
+    try { renderFreshnessBadge(list); } catch (e) { console.error('renderFreshnessBadge falhou:', e); }
+    try { if (fullListBackdrop.classList.contains('open')) renderFullList(); } catch (e) { console.error('renderFullList falhou:', e); }
 
-    if (state.sortMode === 'price'){
-      renderCarousel(list, 'price');
-    } else {
-      renderCarouselSkeleton();
-      const valueList = await computeValueRankedList(list);
-      if (myToken !== renderToken) return;
-      renderCarousel(valueList, 'value');
+    try {
+      if (state.sortMode === 'price'){
+        renderCarousel(list, 'price');
+      } else {
+        renderCarouselSkeleton();
+        const valueList = await computeValueRankedList(list);
+        if (myToken !== renderToken) return;
+        renderCarousel(valueList, 'value');
+      }
+    } catch (e) {
+      console.error('renderCarousel falhou:', e);
     }
   }
 
@@ -1251,7 +1307,7 @@
   // e atuais (a DGEG obriga a pelo menos 1 atualização por dia).
   function renderFreshnessBadge(list){
     const badge = document.getElementById('freshnessBadge');
-    const withDate = list.filter(s => s.updatedAt);
+    const withDate = list.filter(s => s.updatedAt && typeof s.updatedAt === 'string');
     if (withDate.length === 0){ badge.textContent = ''; return; }
     const mostRecent = withDate.reduce((a,b) => (a.updatedAt > b.updatedAt ? a : b));
     // formato DGEG: "2026-07-08 09:05" -> "08/07 09:05"
@@ -1291,6 +1347,7 @@
   document.getElementById('carouselExpand').addEventListener('click', () => {
     fullListBackdrop.classList.add('open');
     renderTankSelector();
+    renderRadiusSelector();
     renderFullList();
     renderBrentTrend();
   });
@@ -1378,7 +1435,8 @@
     } else {
       list = lastList;
       isRealCost = false;
-      document.getElementById('fullListSubtitle').textContent = `${list.length} postos de ${f ? f.label.toLowerCase() : ''} · mais barato primeiro`;
+      const capNote = list.length && list[0]._capped ? ` (raio grande — a mostrar só os ${RESULT_CAP} mais baratos)` : '';
+      document.getElementById('fullListSubtitle').textContent = `${list.length} postos de ${f ? f.label.toLowerCase() : ''} · mais barato primeiro${capNote}`;
     }
 
     if (list.length === 0 && !reference){
@@ -1607,5 +1665,10 @@
     });
   }
 </script>
+
+<!-- Contador de visitas, sem cookies, sem dados pessoais (GoatCounter) —
+     1) cria conta grátis em https://www.goatcounter.com/signup
+     2) troca "SUBSTITUIR-PELO-TEU-CODIGO" abaixo pelo código que te derem -->
+<script data-goatcounter="https://SUBSTITUIR-PELO-TEU-CODIGO.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </body>
 </html>
