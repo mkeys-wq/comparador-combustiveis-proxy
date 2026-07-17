@@ -66,13 +66,10 @@
   .icon-pill{ width:38px; height:38px; border-radius:14px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; color:var(--text); font-size:15px; transition:transform .1s ease; }
   .icon-pill:active{ transform:scale(0.92); }
   .icon-pill.active{ color:var(--cyan); border-color:rgba(34,211,238,0.4); }
-  #filterTrigger{ color:var(--text) !important; }
-  #filterTrigger span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text); }
-  #filterTrigger svg{ color:var(--text); }
-  #filterTrigger.active{ color:var(--cyan) !important; border-color:rgba(34,211,238,0.4); }
-  #filterTrigger.active span{ color:var(--cyan); }
 
-  .info-box{ position:absolute; top:64px; left:14px; right:14px; z-index:850; font-size:11.5px; line-height:1.5; color:var(--text-muted); border-radius:12px; padding:10px 12px; opacity:0; transform:translateY(-6px) scale(0.98); pointer-events:none; transition:opacity .18s ease, transform .18s ease; max-height:75vh; overflow-y:auto; }
+  .info-box{ position:absolute; top:104px; left:14px; right:14px; z-index:850; font-size:11.5px; line-height:1.5; color:var(--text-muted); border-radius:12px; padding:10px 12px; opacity:0; transform:translateY(-6px) scale(0.98); pointer-events:none; transition:opacity .18s ease, transform .18s ease; max-height:70vh; overflow-y:auto; }
+  .fuel-chip-row{ position:absolute; top:60px; left:14px; right:14px; z-index:500; display:flex; gap:6px; overflow-x:auto; scrollbar-width:none; -webkit-overflow-scrolling:touch; padding-bottom:2px; }
+  .fuel-chip-row::-webkit-scrollbar{ display:none; }
   .info-box.open{ opacity:1; transform:translateY(0) scale(1); pointer-events:auto; }
   .info-row{ padding:4px 0; border-top:1px solid rgba(255,255,255,0.06); }
   .info-row:first-child{ border-top:none; padding-top:0; }
@@ -80,9 +77,6 @@
   .info-box b{ color:var(--cyan); font-weight:600; }
 
   /* filter popover panel */
-  .filter-panel{ position:absolute; top:64px; left:14px; right:14px; z-index:850; border-radius:16px; padding:12px; flex-direction:column; gap:10px; opacity:0; transform:translateY(-6px) scale(0.98); pointer-events:none; transition:opacity .18s ease, transform .18s ease; display:flex; max-height:75vh; overflow-y:auto; }
-  .filter-panel.open{ opacity:1; transform:translateY(0) scale(1); pointer-events:auto; }
-  .filter-row{ display:flex; flex-wrap:wrap; gap:6px; }
   .autonomy-row{ display:flex; align-items:center; gap:6px; background:rgba(255,255,255,0.03); border:1px solid var(--line); border-radius:12px; padding:8px 10px; }
   .autonomy-label{ font-size:11px; color:var(--text-muted); flex:1; }
   .autonomy-row input{ width:56px; background:rgba(255,255,255,0.06); border:1px solid var(--line); border-radius:8px; padding:5px 6px; color:var(--text); font-size:12px; text-align:right; outline:none; }
@@ -270,13 +264,12 @@
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22D3EE" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
           <span id="locLabel">Arouca, Aveiro</span>
         </button>
-        <button class="loc-pill glass" id="filterTrigger" title="Filtros" style="flex:0 0 auto; max-width:140px;">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
-          <span id="filterTriggerLabel">Filtros</span>
-        </button>
+        <button class="icon-pill glass" id="favToggle" title="Só favoritos">☆</button>
         <button class="icon-pill glass" id="discountBtn" title="Os teus descontos" style="position:relative; opacity:0.85;">🎫<span id="discountStaleDot" style="display:none; position:absolute; top:6px; right:6px; width:8px; height:8px; border-radius:50%; background:#FBBF24; border:1.5px solid var(--panel-solid);"></span></button>
         <button class="icon-pill glass" id="infoBtn" style="opacity:0.85;">ⓘ</button>
       </div>
+
+      <div class="fuel-chip-row" id="fuelChipRow"></div>
 
       <div class="info-box glass" id="infoBox">
         <div class="info-row"><b>⛽ Dados</b> — reais, oficiais, atualizados diariamente pela DGEG/ERSE.</div>
@@ -288,10 +281,6 @@
         <div class="info-row"><b>🛢️ Tendência do Brent</b> — dentro de "Ver lista", mostramos o preço atual do petróleo Brent e a evolução dos últimos dias (fonte gratuita e pública). É só um sinal — em Portugal os preços mudam à segunda-feira e também dependem da margem de refinação e de impostos (ISP/IVA), que podem anular o efeito do Brent. Não é uma previsão exata do preço por litro.</div>
         <div class="info-row"><b>🎫 Descontos</b> — configura os teus (Continente, COMBINA, etc.) no botão 🎫 do topo; aplicam-se aos preços e a todos os cálculos acima.</div>
         <div class="info-row"><b>★ Favoritos</b> — guardados neste telemóvel.</div>
-      </div>
-
-      <div class="filter-panel glass" id="filterPanel">
-        <div class="filter-row" id="fuelFilters"></div>
       </div>
 
       <div class="map-banner glass" id="mapBanner"></div>
@@ -335,7 +324,7 @@
       <button class="carousel-arrow left" id="carouselArrowLeft" aria-label="Deslizar para a esquerda">‹</button>
       <button class="carousel-arrow right" id="carouselArrowRight" aria-label="Deslizar para a direita">›</button>
 
-      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v63-fuelwarn</div>
+      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v65-btnonly</div>
     </div>
   </div>
 </div>
@@ -1176,17 +1165,16 @@
 
   // ---------- filters ----------
   function renderFilterChips(){
-    const fuelEl = document.getElementById('fuelFilters');
-    fuelEl.innerHTML =
-      FUELS.map(f => `<button class="chip" data-fuel="${f.key}" data-label="${f.label}">${f.label}</button>`).join('') +
-      `<button class="chip" data-favs="1" data-label="★ Favoritos">★ Favoritos</button>`;
+    const fuelEl = document.getElementById('fuelChipRow');
+    fuelEl.innerHTML = FUELS.map(f => `<button class="chip" data-fuel="${f.key}" data-label="${f.label}">${f.label}</button>`).join('');
     fuelEl.querySelectorAll('[data-fuel]').forEach(btn => {
       btn.addEventListener('click', () => {
         state.fuel = btn.getAttribute('data-fuel');
         onFilterChanged();
+        btn.scrollIntoView({ behavior:'smooth', inline:'center', block:'nearest' });
       });
     });
-    fuelEl.querySelector('[data-favs]').addEventListener('click', () => {
+    document.getElementById('favToggle').addEventListener('click', () => {
       state.favoritesOnly = !state.favoritesOnly;
       onFilterChanged();
     });
@@ -1196,7 +1184,6 @@
 
   function onFilterChanged(){
     syncFilterChipStates();
-    refreshFilterTrigger();
     renderAll();
   }
 
@@ -1215,33 +1202,34 @@
   }
 
   function syncFilterChipStates(){
-    document.querySelectorAll('#fuelFilters [data-fuel]').forEach(btn => {
+    document.querySelectorAll('#fuelChipRow [data-fuel]').forEach(btn => {
       const isOn = state.fuel === btn.getAttribute('data-fuel');
       setChipVisual(btn, isOn, 'active-neutral');
     });
-    const favsBtn = document.querySelector('#fuelFilters [data-favs]');
-    setChipVisual(favsBtn, state.favoritesOnly, 'active-fav');
+    const favBtn = document.getElementById('favToggle');
+    favBtn.textContent = state.favoritesOnly ? '★' : '☆';
+    favBtn.classList.toggle('active', state.favoritesOnly);
   }
-  function refreshFilterTrigger(){
-    const f = FUELS.find(f => f.key === state.fuel);
-    const parts = [f ? f.label : 'Combustível'];
-    if (state.favoritesOnly) parts.push('★ Favoritos');
-    document.getElementById('filterTrigger').classList.add('active');
-    document.getElementById('filterTriggerLabel').textContent = parts.join(' · ');
-  }
-
-  document.getElementById('filterTrigger').addEventListener('click', () => {
-    document.getElementById('infoBox').classList.remove('open');
-    infoOpen = false;
-    document.getElementById('filterPanel').classList.toggle('open');
-  });
 
   // ---------- zoom control ----------
+  function syncRadiusToZoomButtons(){
+    const impliedRadius = radiusForZoom(map.getZoom());
+    if (impliedRadius !== state.searchRadiusKm){
+      state.searchRadiusKm = impliedRadius;
+      invalidateValueCache();
+      renderRadiusSelector();
+      renderAll();
+    }
+  }
   document.getElementById('zoomInBtn').addEventListener('click', () => {
-    if (!usingFallbackMap) map.zoomIn();
+    if (usingFallbackMap) return;
+    map.zoomIn();
+    setTimeout(syncRadiusToZoomButtons, 350); // depois da animação de zoom acabar
   });
   document.getElementById('zoomOutBtn').addEventListener('click', () => {
-    if (!usingFallbackMap) map.zoomOut();
+    if (usingFallbackMap) return;
+    map.zoomOut();
+    setTimeout(syncRadiusToZoomButtons, 350);
   });
 
   // ---------- deslizar a lista de postos (controlo manual, não depende do
@@ -1342,7 +1330,6 @@
   let infoOpen = false;
   document.getElementById('infoBtn').addEventListener('click', () => {
     infoOpen = !infoOpen;
-    document.getElementById('filterPanel').classList.remove('open');
     document.getElementById('infoBox').classList.toggle('open', infoOpen);
   });
 
@@ -1669,27 +1656,8 @@
     }
   }
 
-
-  // Zoom manual (botões +/- ou gesto de pinça) também ajusta o raio de
-  // pesquisa sozinho — para "afastar o zoom" trazer mais postos, como
-  // aconteceria num mapa normal, em vez de mostrar uma área maior vazia.
-  let zoomRadiusTimer = null;
-  map.on('zoomend', () => {
-    clearTimeout(zoomRadiusTimer);
-    zoomRadiusTimer = setTimeout(() => {
-      const impliedRadius = radiusForZoom(map.getZoom());
-      if (impliedRadius !== state.searchRadiusKm){
-        state.searchRadiusKm = impliedRadius;
-        invalidateValueCache();
-        renderRadiusSelector();
-        renderAll();
-      }
-    }, 400);
-  });
-
   // ---------- boot ----------
   renderFilterChips();
-  refreshFilterTrigger();
   renderAll();
   updateStaleDiscountBadge();
   setTimeout(() => map.invalidateSize(), 200);
