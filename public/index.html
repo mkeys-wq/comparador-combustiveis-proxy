@@ -170,11 +170,11 @@
   .full-row .sub{ font-size:10.5px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:1px; }
   .full-tag{ display:inline-block; font-size:9px; font-weight:700; margin-top:3px; padding:1px 6px; border-radius:5px; }
   .mini-tag{ font-size:9px; font-weight:700; margin-top:5px; padding:3px 7px; border-radius:6px; display:inline-block; }
-  .mini-tag.ok{ background:rgba(52,211,153,0.18); color:#34D399; }
-  .mini-tag.no{ background:rgba(244,63,94,0.15); color:#F87171; }
+  .mini-tag.ok{ background:rgba(52,211,153,0.18); color:#34D399; border:1px solid rgba(52,211,153,0.5); font-weight:800; }
+  .mini-tag.no{ background:rgba(244,63,94,0.18); color:#FCA5A5; border:1px solid rgba(244,63,94,0.5); font-weight:800; }
   .mini-tag.ref{ background:rgba(34,211,238,0.15); color:var(--cyan); }
-  .full-tag.ok{ background:rgba(52,211,153,0.18); color:#34D399; }
-  .full-tag.no{ background:rgba(244,63,94,0.15); color:#F87171; }
+  .full-tag.ok{ background:rgba(52,211,153,0.18); color:#34D399; border:1px solid rgba(52,211,153,0.5); font-weight:800; }
+  .full-tag.no{ background:rgba(244,63,94,0.18); color:#FCA5A5; border:1px solid rgba(244,63,94,0.5); font-weight:800; }
   .full-tag.ref{ background:rgba(34,211,238,0.15); color:var(--cyan); }
   .full-row .est-tag{ font-size:9px; font-weight:700; margin-top:3px; display:inline-block; }
   .full-row .price-block{ text-align:right; flex-shrink:0; }
@@ -280,7 +280,8 @@
 
       <div class="info-box glass" id="infoBox">
         <div class="info-row"><b>⛽ Dados</b> — reais, oficiais, atualizados diariamente pela DGEG/ERSE.</div>
-        <div class="info-row"><b>🎯 Melhor valor</b> — calcula a rota e a altitude <b>reais</b> para os ~10 postos mais baratos, mostra "✅ compensa"/"⚠️ não compensa" face ao teu posto mais próximo, e ordena pelo custo total de lá ir e voltar (combustível + desgaste). É a vista principal.</div>
+        <div class="info-row"><b>🎯 Melhor valor</b> — calcula a rota e a altitude <b>reais</b> para os ~10 postos mais baratos. O número em destaque é o <b>custo total</b> de lá ir, encher o depósito do teu veículo e voltar — não só o preço por litro (esse continua visível, mais pequeno). Mostra também "✅ compensa"/"❌ NÃO compensa" face ao teu posto mais próximo.</div>
+        <div class="info-row"><b>⛽ Aviso de combustível</b> — se a ida e volta gastar mais do que meio depósito, avisamos, mesmo que compense no dinheiro — assumimos, por precaução, que não vais com o depósito cheio quando andas à procura de combustível mais barato.</div>
         <div class="info-row"><b>💰 Mais barato</b> — lista simples, ordenada só pelo preço, sem cálculos extra.</div>
         <div class="info-row"><b>Pressupostos assumidos</b> — cada veículo tem o seu próprio peso, consumo e desgaste (dentro de "Ver lista"): 🏍️ Mota (220kg, 3,5L/100km, 0,02€/km), 🚗 Ligeiro (1400kg, 6,5L/100km, 0,04€/km), 🚐 Comercial (1900kg, 8,5L/100km, 0,06€/km), 🚚 Camião (~12000kg, ~30L/100km, ~0,18€/km — muito aproximado). Ao trocares, tudo recalcula de imediato, incluindo o efeito da altitude real do percurso. Não é o consumo exato do teu veículo específico.</div>
         <div class="info-row"><b>📍 Raio de pesquisa</b> — também ajustável dentro de "Ver lista" (10km a país inteiro). Com raios muito grandes, só mostramos os 400 postos mais baratos de cada vez, para o mapa não ficar sobrecarregado.</div>
@@ -334,7 +335,7 @@
       <button class="carousel-arrow left" id="carouselArrowLeft" aria-label="Deslizar para a esquerda">‹</button>
       <button class="carousel-arrow right" id="carouselArrowRight" aria-label="Deslizar para a direita">›</button>
 
-      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v59-verified</div>
+      <div style="position:absolute; left:6px; bottom:2px; z-index:50; font-size:8px; color:rgba(138,150,190,0.35); font-family:'JetBrains Mono',monospace;">build: fuel-v63-fuelwarn</div>
     </div>
   </div>
 </div>
@@ -424,6 +425,14 @@
   const GASOLINE_FUEL_KEYS = ['gasolina95', 'gasolina95p', 'gasolina98', 'gpl']; // camiões pesados não andam a gasolina/GPL
 
   const RADIUS_OPTIONS = [10, 20, 50, 100, 300]; // km — 300 cobre a maior parte do país a partir de um ponto central
+  const ASSUMED_STARTING_FUEL_FRACTION = 0.5; // assume, por precaução, que não tens mais do que meio depósito quando andas à procura de combustível
+  function fuelFeasibilityWarning(roundTripL){
+    const assumedAvailable = state.tankSizeL * ASSUMED_STARTING_FUEL_FRACTION;
+    if (roundTripL > assumedAvailable){
+      return `<div style="font-size:10px; color:#FBBF24; background:rgba(251,191,36,0.12); border:1px solid rgba(251,191,36,0.4); border-radius:8px; padding:5px 8px; margin-top:5px; font-weight:700;">⛽ Cuidado: a ida e volta gasta ≈${roundTripL.toFixed(1)}L — mais do que meio depósito. Se não fores com o depósito bem cheio, podes ficar sem combustível a caminho.</div>`;
+    }
+    return '';
+  }
   const RESULT_CAP = 400; // limite de segurança: nunca processar/mostrar mais do que isto de uma vez
 
   const toRad = d => d * Math.PI / 180;
@@ -450,6 +459,15 @@
     if (r<=100) return 8;
     if (r<=200) return 7;
     return 6.3; // ~300km, cobre a maior parte do país a partir de um ponto central
+  }
+  // inverso: a que raio (dos que já temos como opção) corresponde este zoom —
+  // usado para os botões +/- também irem buscar mais postos automaticamente
+  function radiusForZoom(z){
+    if (z>=10.65) return 10;
+    if (z>=9.5) return 20;
+    if (z>=8.5) return 50;
+    if (z>=7.5) return 100;
+    return 300;
   }
   function colorForPrice(t){
     // t: 0 (mais barato) -> 1 (mais caro), gradiente verde -> amarelo -> vermelho
@@ -884,7 +902,7 @@
         const custoDeslocacao = roundTripKm * state.wearPerKm + roundTripL * s.effectivePrice;
         const voucher = getVoucherAmount(s);
         const totalCost = Math.max(0, state.tankSizeL * s.effectivePrice + custoDeslocacao - voucher);
-        return { ...s, realDistanceKm: data.distanceKm, realDurationMin: data.durationMin, custoDeslocacao, totalCost, voucher };
+        return { ...s, realDistanceKm: data.distanceKm, realDurationMin: data.durationMin, custoDeslocacao, totalCost, voucher, roundTripL };
       } catch (e) {
         return null;
       }
@@ -941,12 +959,13 @@
           const poupancaBruta = (nearest.effectivePrice - sPrice) * state.tankSizeL;
           const net = poupancaBruta - custoTotal + voucher;
           const voucherTxt = voucher > 0 ? ` + vale ${voucher.toFixed(2)}€` : '';
+          const feasWarn = fuelFeasibilityWarning(roundTripL);
           if (net > 0){
             consumoEl.innerHTML = `<div style="font-size:12.5px;"><b style="color:#34D399">✅ Compensa: ganhas ≈${net.toFixed(2)}€</b></div>
-              <div style="font-size:9.5px; color:var(--text-faint); margin-top:2px;">poupança ${poupancaBruta.toFixed(2)}€${voucherTxt} − viagem ${custoTotal.toFixed(2)}€ (combustível+desgaste) · face a ${nearest.name} (${nearest.dist.toFixed(1)}km, ${nearest.effectivePrice.toFixed(3)}€)</div>`;
+              <div style="font-size:9.5px; color:var(--text-faint); margin-top:2px;">poupança ${poupancaBruta.toFixed(2)}€${voucherTxt} − viagem ${custoTotal.toFixed(2)}€ (combustível+desgaste) · face a ${nearest.name} (${nearest.dist.toFixed(1)}km, ${nearest.effectivePrice.toFixed(3)}€)</div>${feasWarn}`;
           } else {
-            consumoEl.innerHTML = `<div style="font-size:12.5px;"><b style="color:#F87171">⚠️ Não compensa: perdes ≈${Math.abs(net).toFixed(2)}€</b></div>
-              <div style="font-size:9.5px; color:var(--text-faint); margin-top:2px;">poupança ${poupancaBruta.toFixed(2)}€${voucherTxt} − viagem ${custoTotal.toFixed(2)}€ (combustível+desgaste) · face a ${nearest.name} (${nearest.dist.toFixed(1)}km, ${nearest.effectivePrice.toFixed(3)}€)</div>`;
+            consumoEl.innerHTML = `<div style="font-size:12.5px;"><b style="color:#F87171">❌ NÃO compensa: perdes ≈${Math.abs(net).toFixed(2)}€</b></div>
+              <div style="font-size:9.5px; color:var(--text-faint); margin-top:2px;">poupança ${poupancaBruta.toFixed(2)}€${voucherTxt} − viagem ${custoTotal.toFixed(2)}€ (combustível+desgaste) · face a ${nearest.name} (${nearest.dist.toFixed(1)}km, ${nearest.effectivePrice.toFixed(3)}€)</div>${feasWarn}`;
           }
         } else if (nearest) {
           consumoEl.innerHTML = `⛽ Opção igual ou mais barata mais perto: <b>${nearest.name}</b> (${nearest.dist.toFixed(1)}km, ${nearest.effectivePrice.toFixed(3)}€).`;
@@ -1087,15 +1106,18 @@
       const delay = Math.min(idx, 8) * 0.035;
       const rankBadge = idx === 0 ? '🏆' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : '';
       const hasDiscount = s.effectivePrice < s.price - 0.0001 || getVoucherAmount(s) > 0;
-      const priceRow = `<div class="power mono" style="color:${col}">${s.effectivePrice.toFixed(3)}</div>`;
+      const priceRow = mode === 'value'
+        ? `<div class="power mono" style="color:${col}">${s.totalCost.toFixed(2)}€</div>`
+        : `<div class="power mono" style="color:${col}">${s.effectivePrice.toFixed(3)}</div>`;
       let distRow, compensaRow = '';
       if (mode === 'value'){
-        distRow = `${s.realDistanceKm.toFixed(1)}km real · ${Math.round(s.realDurationMin)}min`;
+        distRow = `${s.effectivePrice.toFixed(3)}€/L · ${s.realDistanceKm.toFixed(1)}km real · ${Math.round(s.realDurationMin)}min`;
         if (reference && reference.id !== s.id){
           const net = (reference.effectivePrice - s.effectivePrice) * state.tankSizeL - s.custoDeslocacao;
+          const fuelWarn = s.roundTripL > state.tankSizeL * ASSUMED_STARTING_FUEL_FRACTION ? '⛽⚠️ ' : '';
           compensaRow = net > 0
-            ? `<div class="mini-tag ok">✅ compensa ≈+${net.toFixed(2)}€</div>`
-            : `<div class="mini-tag no">⚠️ não compensa ≈−${Math.abs(net).toFixed(2)}€</div>`;
+            ? `<div class="mini-tag ok">${fuelWarn}✅ compensa ≈+${net.toFixed(2)}€</div>`
+            : `<div class="mini-tag no">${fuelWarn}❌ NÃO compensa ≈−${Math.abs(net).toFixed(2)}€</div>`;
         } else if (reference){
           compensaRow = `<div class="mini-tag ref">📍 mais próximo</div>`;
         }
@@ -1472,16 +1494,15 @@
       const hasDiscount = s.effectivePrice < s.price - 0.0001 || getVoucherAmount(s) > 0;
       let tag = '', subLine;
       if (isRealCost){
-        subLine = `${s.brand} · ${s.municipio} · ${s.realDistanceKm.toFixed(1)}km real · ${Math.round(s.realDurationMin)}min`;
+        subLine = `${s.brand} · ${s.municipio} · ${s.effectivePrice.toFixed(3)}€/L · ${s.realDistanceKm.toFixed(1)}km real · ${Math.round(s.realDurationMin)}min`;
         const voucher = getVoucherAmount(s);
-        const fillCost = Math.max(0, s.effectivePrice * state.tankSizeL - voucher);
         if (reference && reference.id !== s.id){
           const poupanca = (reference.effectivePrice - s.effectivePrice) * state.tankSizeL;
           const net = poupanca - s.custoDeslocacao + voucher;
           tag = (net > 0
             ? `<span class="full-tag ok">✅ compensa ≈+${net.toFixed(2)}€</span>`
-            : `<span class="full-tag no">⚠️ não compensa ≈−${Math.abs(net).toFixed(2)}€</span>`)
-            + ` <span class="full-tag" style="color:var(--text-faint);background:rgba(255,255,255,0.06);">≈${fillCost.toFixed(2)}€ para encher ${state.tankSizeL}L</span>`;
+            : `<span class="full-tag no">❌ NÃO compensa ≈−${Math.abs(net).toFixed(2)}€</span>`)
+            + fuelFeasibilityWarning(s.roundTripL);
         }
       } else {
         // "Mais barato" é só a lista simples por preço, sem cálculos extra.
@@ -1495,8 +1516,8 @@
           ${tag}
         </div>
         <div class="price-block">
-          <div class="val" style="color:${col}">${s.effectivePrice.toFixed(3)}</div>
-          <div class="unit">${hasDiscount ? '🎫 c/ desconto' : '€/litro'}</div>
+          <div class="val" style="color:${col}">${isRealCost ? s.totalCost.toFixed(2) : s.effectivePrice.toFixed(3)}</div>
+          <div class="unit">${isRealCost ? `€ p/ ${state.tankSizeL}L` : (hasDiscount ? '🎫 c/ desconto' : '€/litro')}</div>
         </div>
       </div>`;
     }).join('');
@@ -1648,6 +1669,23 @@
     }
   }
 
+
+  // Zoom manual (botões +/- ou gesto de pinça) também ajusta o raio de
+  // pesquisa sozinho — para "afastar o zoom" trazer mais postos, como
+  // aconteceria num mapa normal, em vez de mostrar uma área maior vazia.
+  let zoomRadiusTimer = null;
+  map.on('zoomend', () => {
+    clearTimeout(zoomRadiusTimer);
+    zoomRadiusTimer = setTimeout(() => {
+      const impliedRadius = radiusForZoom(map.getZoom());
+      if (impliedRadius !== state.searchRadiusKm){
+        state.searchRadiusKm = impliedRadius;
+        invalidateValueCache();
+        renderRadiusSelector();
+        renderAll();
+      }
+    }, 400);
+  });
 
   // ---------- boot ----------
   renderFilterChips();
