@@ -1,0 +1,18 @@
+name: Manter app acordada
+
+# Corre a cada 10 minutos, sozinho, para o Render nunca adormecer a app
+# (o plano gratuito adormece ao fim de ~15 min sem visitas).
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch: # permite correr manualmente também, no separador "Actions" do GitHub
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pedir /api/health
+        run: |
+          curl -sf --max-time 20 "https://comparador-combustiveis-proxy.onrender.com/api/health" \
+            && echo "✅ App respondeu, continua acordada" \
+            || echo "⚠️ App não respondeu a tempo (pode estar a acordar agora mesmo)"
